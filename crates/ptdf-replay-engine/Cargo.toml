@@ -1,0 +1,19 @@
+[package]
+name = "ptdf-replay-engine"
+description = "Replay Engine (architecture §6): loads a session's segments via MetadataStore+ptdf-storage, linearizes events by HLC (§15), and drives any ReplayDriver (§13) through them, surfacing divergences as first-class results rather than errors."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+ptdf-types = { path = "../ptdf-types" }
+ptdf-pal = { path = "../ptdf-pal" }
+ptdf-storage = { path = "../ptdf-storage" }
+ptdf-metadata = { path = "../ptdf-metadata" }
+ptdf-logging = { path = "../ptdf-logging" }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"

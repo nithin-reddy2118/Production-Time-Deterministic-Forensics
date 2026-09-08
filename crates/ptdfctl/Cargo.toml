@@ -1,0 +1,22 @@
+[package]
+name = "ptdfctl"
+description = "PTDF command-line tool (architecture §17: CLI wraps the same operations as the Query API). v1 scope: segment inspection/dump/verification directly against ptdf-storage; commands, wiring against the ingestion/query network APIs land once Module 8 (networking) exists."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "ptdfctl"
+path = "src/main.rs"
+
+[dependencies]
+ptdf-storage = { path = "../ptdf-storage" }
+ptdf-types = { path = "../ptdf-types" }
+ptdf-logging = { path = "../ptdf-logging" }
+clap = { workspace = true, features = ["derive"] }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"

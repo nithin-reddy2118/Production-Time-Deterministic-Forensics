@@ -1,0 +1,42 @@
+# cargo-deny configuration. Never executed in the sandbox that wrote this
+# repository (no cargo/network) — see FINAL_VERIFICATION.md. Written so a
+# real CI environment has a sensible policy to run against immediately,
+# not an empty/default config that would need authoring later.
+
+[graph]
+all-features = true
+
+[advisories]
+version = 2
+yanked = "deny"
+ignore = []
+
+[licenses]
+version = 2
+# Permissive licenses only, matching this workspace's own Apache-2.0
+# license and the licensing of its direct dependencies as declared on
+# crates.io at the time each was chosen (thiserror: MIT/Apache-2.0, serde:
+# MIT/Apache-2.0, tracing: MIT, clap: MIT/Apache-2.0, zstd: MIT, libc:
+# MIT/Apache-2.0, aes-gcm/sha2: MIT/Apache-2.0, toml/serde_json: MIT/
+# Apache-2.0) — this list is what a real `cargo deny check licenses` run
+# would need to pass without modification, but that run has not been
+# performed here.
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "Unicode-3.0",
+]
+confidence-threshold = 0.8
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+deny = []
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

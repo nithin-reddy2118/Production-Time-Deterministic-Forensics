@@ -1,0 +1,15 @@
+[package]
+name = "ptdf-logging"
+description = "Structured logging (architecture §25) built on `tracing`, shared by agent/ingestion/replay/CLI. Separate from the recorded Event stream — this is operational logging about PTDF itself."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["env-filter", "json", "fmt"] }
+thiserror = { workspace = true }
+
+[dev-dependencies]

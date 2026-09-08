@@ -1,0 +1,13 @@
+[package]
+name = "ptdf-types"
+description = "Core wire/domain types shared by every PTDF crate: Event, EventKind, VectorClock, SessionId. No I/O, no platform code — pure data + invariants."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+thiserror = { workspace = true }
+
+[dev-dependencies]

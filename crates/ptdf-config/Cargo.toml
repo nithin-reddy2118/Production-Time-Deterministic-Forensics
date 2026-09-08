@@ -1,0 +1,16 @@
+[package]
+name = "ptdf-config"
+description = "Layered configuration (architecture §24): defaults -> file -> env -> CLI flags -> dynamic control-plane push, one schema shared by agent/ingestion/replay/CLI."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+thiserror = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+toml = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"

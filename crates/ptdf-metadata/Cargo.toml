@@ -1,0 +1,14 @@
+[package]
+name = "ptdf-metadata"
+description = "Metadata/index engine (architecture §12): MetadataStore trait (session->segments, EventId->location, secondary indices for query) plus a fully-implemented in-memory reference store. A RocksDB-backed store is a same-trait swap for production point/range-scan performance — not implemented here because pulling in a real RocksDB binding can't be verified in this build environment (no network/toolchain); the trait boundary is exactly what makes that swap a follow-up, not a redesign."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+ptdf-types = { path = "../ptdf-types" }
+thiserror = { workspace = true }
+
+[dev-dependencies]

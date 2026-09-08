@@ -1,0 +1,16 @@
+[package]
+name = "ptdf-storage"
+description = "Segment-based append-only event log (architecture §10): SegmentWriter/SegmentReader over immutable, checksummed, sealed segments. No external serialization/hashing dependency — a self-contained binary codec and CRC32, since this crate sits on the throughput-critical write path (see root Cargo.toml dependency policy)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+ptdf-types = { path = "../ptdf-types" }
+thiserror = { workspace = true }
+zstd = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"

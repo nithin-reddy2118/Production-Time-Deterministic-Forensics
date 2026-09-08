@@ -1,0 +1,11 @@
+[package]
+name = "ptdf-metrics"
+description = "Metrics + Prometheus text-exposition exporter (architecture §25: '/metrics on every plane'). Self-contained (no external `prometheus`/`metrics` crate) — a counter/gauge registry and the exposition-format renderer are simple enough to own directly and keep dependency-free, matching this workspace's policy for throughput-adjacent crates."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+thiserror = { workspace = true }

@@ -1,0 +1,27 @@
+[package]
+name = "ptdf-rest-api"
+description = "REST API (architecture §17 Query API): a minimal, dependency-light HTTP/1.1 layer over MetadataStore + ReplayEngine + ptdf-metrics::Registry. Request parsing and response building are pure functions with no socket I/O (fully unit-tested); the TcpListener accept/serve loop in server.rs is a thin wrapper that cannot be exercised without actually binding a port and running the process, so it is documented as requiring runtime validation rather than claimed as verified here. A production deployment fronting this with TLS/a reverse proxy (nginx, envoy) is expected — this crate deliberately does not implement TLS itself, matching the encryption module's split (transport security is a deployment concern, not this crate's job)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "ptdf-api-server"
+path = "src/main.rs"
+
+[dependencies]
+ptdf-types = { path = "../ptdf-types" }
+ptdf-metadata = { path = "../ptdf-metadata" }
+ptdf-replay-engine = { path = "../ptdf-replay-engine" }
+ptdf-metrics = { path = "../ptdf-metrics" }
+ptdf-logging = { path = "../ptdf-logging" }
+ptdf-security = { path = "../ptdf-security" }
+thiserror = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"
+ptdf-storage = { path = "../ptdf-storage" }

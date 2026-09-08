@@ -1,0 +1,19 @@
+[package]
+name = "ptdf-distributed"
+description = "Distributed Synchronization Engine (architecture §15): the HLC piggyback wire format that carries a sender's causality timestamp on outgoing network payloads, and the receive-side merge that creates the cross-host happens-before edge — no synchronization protocol beyond piggybacking on data already in flight. Multi-node recording/replay correctness (the actual per-thread ordering across hosts) lives in ptdf-replay-engine::scheduler, which this crate's tests exercise end-to-end against simulated multi-host event streams."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+ptdf-types = { path = "../ptdf-types" }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+ptdf-replay-engine = { path = "../ptdf-replay-engine" }
+ptdf-storage = { path = "../ptdf-storage" }
+ptdf-metadata = { path = "../ptdf-metadata" }
+ptdf-pal = { path = "../ptdf-pal" }
+tempfile = "3"

@@ -1,0 +1,18 @@
+[package]
+name = "ptdf-security"
+description = "Security architecture (§18): API-key Authentication (SHA-256 hashed at rest, constant-time compared), role-based Authorization (Admin/Operator/Viewer -> Permission set), AES-256-GCM Encryption for data at rest (session data-encryption-keys, matching §18's per-session DEK model — KMS wrapping of the DEK itself is a deployment integration point, not implemented here since it's inherently cloud-provider-specific), and structured, append-only Audit Logging. Uses the well-vetted `aes-gcm` crate rather than hand-rolled cryptography — security code is exactly the wrong place to save a dependency."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+thiserror = { workspace = true }
+sha2 = { workspace = true }
+aes-gcm = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"

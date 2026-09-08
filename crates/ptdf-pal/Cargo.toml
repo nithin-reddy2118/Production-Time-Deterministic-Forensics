@@ -1,0 +1,14 @@
+[package]
+name = "ptdf-pal"
+description = "Platform Abstraction Layer: the PlatformInterceptor trait boundary (architecture §13). Defines the contract every OS adapter (Linux/Windows/macOS) implements; contains no platform-specific code itself."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+ptdf-types = { path = "../ptdf-types" }
+thiserror = { workspace = true }
+
+[dev-dependencies]

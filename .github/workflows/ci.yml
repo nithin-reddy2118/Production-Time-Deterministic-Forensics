@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-test-lint:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Cache cargo registry and build artifacts
+        uses: Swatinem/rust-cache@v2
+
+      - name: Format check
+        run: cargo fmt --all -- --check
+
+      # ptdf-pal-linux is Linux/x86_64-only by design (raw.rs has a
+      # compile_error! guard for any other target) — excluded on
+      # non-Linux runners rather than skipping the whole matrix leg, so
+      # every other crate still gets cross-platform build/test coverage
+      # on Windows and macOS.
+      - name: Set platform-specific exclude flags
+        id: excludes
+        shell: bash
+        run: |
+          if [ "${{ matrix.os }}" != "ubuntu-latest" ]; then
+            echo "flags=--exclude ptdf-pal-linux" >> "$GITHUB_OUTPUT"
+          else
+            echo "flags=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build
+        shell: bash
+        run: cargo build --workspace ${{ steps.excludes.outputs.flags }} --all-targets
+
+      - name: Test
+        shell: bash
+        run: cargo test --workspace ${{ steps.excludes.outputs.flags }}
+
+      - name: Test ptdf-pal-linux ptrace integration (privileged, Linux only)
+        if: matrix.os == 'ubuntu-latest'
+        run: cargo test -p ptdf-pal-linux -- --ignored
+
+      - name: Clippy (deny warnings)
+        shell: bash
+        run: cargo clippy --workspace ${{ steps.excludes.outputs.flags }} --all-targets -- -D warnings
+
+      - name: Doc build (deny broken links / rustdoc warnings)
+        shell: bash
+        run: cargo doc --workspace ${{ steps.excludes.outputs.flags }} --no-deps
+
+  security-and-license-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: cargo audit (RustSec advisory database)
+        uses: rustsec/audit-check@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: cargo deny (licenses, bans, advisories, sources)
+        uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          arguments: --all-features
+
+  # Kernel-level adapters (Linux eBPF, Windows minifilter) get their own
+  # dedicated jobs once Module 4's platform crates land — cross-compiling
+  # and testing kernel-adjacent code needs privileged runners / kernel
+  # headers that the plain matrix above doesn't have, so it's kept out of
+  # the fast default job rather than slowing down every PR.

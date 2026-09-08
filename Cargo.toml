@@ -1,0 +1,64 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/ptdf-types",
+    "crates/ptdf-pal",
+    "crates/ptdf-recorder-core",
+    "crates/ptdf-config",
+    "crates/ptdf-logging",
+    "crates/ptdf-pal-linux",
+    "crates/ptdf-storage",
+    "crates/ptdf-metadata",
+    "crates/ptdf-replay-engine",
+    "crates/ptdfctl",
+    "crates/ptdf-metrics",
+    "crates/ptdf-recorder",
+    "crates/ptdf-distributed",
+    "crates/ptdf-security",
+    "crates/ptdf-rest-api",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+authors = ["PTDF Project"]
+license = "Apache-2.0"
+repository = "https://example.invalid/ptdf"
+
+[workspace.dependencies]
+# Dependencies are introduced in the workspace root only once a real
+# module needs them, so each addition here is auditable against a specific
+# module rather than front-loaded speculatively.
+thiserror = "1"
+tracing = "0.1"                # Module 3 (logging)
+tracing-subscriber = "0.3"     # Module 3 (logging)
+zstd = "0.13"                  # Module 10 (compression engine, §11)
+clap = "4"                     # Module 14 (CLI)
+serde = "1"                    # Module 2 (config file layer), REST API
+toml = "0.8"                   # Module 2 (config file layer)
+serde_json = "1"               # REST API
+aes-gcm = "0.10"               # Encryption (§18)
+sha2 = "0.10"                  # API key hashing (Authentication)
+libc = "0.2"
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = "symbols"
+# Deliberately NOT setting panic = "abort" here. This workspace has
+# library crates plus test/bench targets, and `[profile.release]` is what
+# `cargo test --release` also compiles against — the standard libtest
+# harness relies on catching each test's panic via unwinding to report it
+# as a single failed test, not aborting the whole test binary. Setting
+# panic="abort" on this shared profile would make `cargo test --release`
+# behave incorrectly (or require the nightly-only `-Z panic-abort-tests`
+# flag, which this workspace's stable-only MSRV policy rules out). A
+# deployment build that specifically wants abort-on-panic (smaller binary,
+# no unwind tables) should define its own named profile
+# (e.g. `[profile.deploy]` inheriting from release) rather than changing
+# this shared one.
+
+[profile.dev]
+opt-level = 0
+debug = true

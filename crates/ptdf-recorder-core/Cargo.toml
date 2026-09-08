@@ -1,0 +1,15 @@
+[package]
+name = "ptdf-recorder-core"
+description = "OS-agnostic recording core (architecture §8): SeqAllocator, RecorderSink trait, and the bounded backpressure buffer with adaptive-fidelity shedding. Platform adapters (Module 4+) push Events in here; ingestion (Module 9) drains them."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+ptdf-types = { path = "../ptdf-types" }
+ptdf-pal = { path = "../ptdf-pal" }
+thiserror = { workspace = true }
+
+[dev-dependencies]

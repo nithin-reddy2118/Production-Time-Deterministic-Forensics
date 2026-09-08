@@ -1,0 +1,20 @@
+[package]
+name = "ptdf-pal-linux"
+description = "Linux PlatformInterceptor implementation (architecture §13 Linux Adapter): ptrace(2)-based syscall entry/exit interception on x86_64. eBPF fast-path is documented future work (see module docs), not required for a correct v1."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[target.'cfg(target_os = "linux")'.dependencies]
+libc = { workspace = true }
+
+[dependencies]
+ptdf-types = { path = "../ptdf-types" }
+ptdf-pal = { path = "../ptdf-pal" }
+ptdf-recorder-core = { path = "../ptdf-recorder-core" }
+ptdf-logging = { path = "../ptdf-logging" }
+thiserror = { workspace = true }
+
+[dev-dependencies]
