@@ -23,7 +23,10 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum ServerError {
     #[error("failed to bind to {addr}: {source}")]
-    Bind { addr: String, source: std::io::Error },
+    Bind {
+        addr: String,
+        source: std::io::Error,
+    },
 }
 
 /// Read one HTTP request head (up to and including the blank-line
@@ -70,7 +73,10 @@ fn handle_connection(mut stream: TcpStream, state: &AppState) {
 
     let response = match crate::http::parse(&raw) {
         Ok(req) => handle_request(state, &req),
-        Err(e) => crate::http::text_response(crate::http::StatusCode::BadRequest400, &format!("bad request: {e}")),
+        Err(e) => crate::http::text_response(
+            crate::http::StatusCode::BadRequest400,
+            &format!("bad request: {e}"),
+        ),
     };
 
     if let Err(e) = stream.write_all(&response) {
@@ -81,7 +87,10 @@ fn handle_connection(mut stream: TcpStream, state: &AppState) {
 /// Bind `addr` and serve requests until the process is terminated. Blocks
 /// the calling thread forever (or until a bind/accept error).
 pub fn serve(addr: &str, state: Arc<AppState>) -> Result<(), ServerError> {
-    let listener = TcpListener::bind(addr).map_err(|source| ServerError::Bind { addr: addr.to_string(), source })?;
+    let listener = TcpListener::bind(addr).map_err(|source| ServerError::Bind {
+        addr: addr.to_string(),
+        source,
+    })?;
     ptdf_logging::info!(addr, "PTDF REST API listening");
 
     for incoming in listener.incoming() {

@@ -19,7 +19,15 @@ fn start_test_server() -> (String, tempfile::TempDir) {
     let audit_path = dir.path().join("audit.log");
 
     let mut authenticator = ApiKeyAuthenticator::new();
-    authenticator.register_key("test-key", Principal { id: "tester".into(), role: Role::Viewer }).unwrap();
+    authenticator
+        .register_key(
+            "test-key",
+            Principal {
+                id: "tester".into(),
+                role: Role::Viewer,
+            },
+        )
+        .unwrap();
 
     let state = Arc::new(AppState {
         metadata: Arc::new(InMemoryMetadataStore::new()),
@@ -53,7 +61,9 @@ fn start_test_server() -> (String, tempfile::TempDir) {
 
 fn raw_http_request(addr: &str, request: &str) -> String {
     let mut stream = TcpStream::connect(addr).unwrap();
-    stream.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+    stream
+        .set_read_timeout(Some(Duration::from_secs(5)))
+        .unwrap();
     stream.write_all(request.as_bytes()).unwrap();
     stream.shutdown(std::net::Shutdown::Write).ok();
 
@@ -80,14 +90,20 @@ fn metrics_endpoint_requires_authentication_over_a_real_socket() {
 #[test]
 fn metrics_endpoint_succeeds_with_a_valid_key_over_a_real_socket() {
     let (addr, _dir) = start_test_server();
-    let response = raw_http_request(&addr, "GET /metrics HTTP/1.1\r\nHost: localhost\r\nAuthorization: Bearer test-key\r\n\r\n");
+    let response = raw_http_request(
+        &addr,
+        "GET /metrics HTTP/1.1\r\nHost: localhost\r\nAuthorization: Bearer test-key\r\n\r\n",
+    );
     assert!(response.starts_with("HTTP/1.1 200"));
 }
 
 #[test]
 fn unknown_route_returns_404_over_a_real_socket() {
     let (addr, _dir) = start_test_server();
-    let response = raw_http_request(&addr, "GET /does-not-exist HTTP/1.1\r\nHost: localhost\r\n\r\n");
+    let response = raw_http_request(
+        &addr,
+        "GET /does-not-exist HTTP/1.1\r\nHost: localhost\r\n\r\n",
+    );
     assert!(response.starts_with("HTTP/1.1 404"));
 }
 

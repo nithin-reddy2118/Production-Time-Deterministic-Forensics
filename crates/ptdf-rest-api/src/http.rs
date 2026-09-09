@@ -45,7 +45,9 @@ impl Request {
         // Header names are case-insensitive per RFC 7230; we normalize to
         // lowercase at parse time (see `parse`), so callers just pass the
         // lowercase form.
-        self.headers.get(&name.to_ascii_lowercase()).map(|s| s.as_str())
+        self.headers
+            .get(&name.to_ascii_lowercase())
+            .map(|s| s.as_str())
     }
 }
 
@@ -68,12 +70,21 @@ fn parse_query_string(qs: &str) -> HashMap<String, String> {
 /// need a request body).
 pub fn parse(raw: &str) -> Result<Request, HttpParseError> {
     let mut lines = raw.split("\r\n");
-    let request_line = lines.next().filter(|l| !l.is_empty()).ok_or(HttpParseError::Empty)?;
+    let request_line = lines
+        .next()
+        .filter(|l| !l.is_empty())
+        .ok_or(HttpParseError::Empty)?;
 
     let mut parts = request_line.split(' ');
-    let method_str = parts.next().ok_or_else(|| HttpParseError::MalformedRequestLine(request_line.to_string()))?;
-    let target = parts.next().ok_or_else(|| HttpParseError::MalformedRequestLine(request_line.to_string()))?;
-    let _version = parts.next().ok_or_else(|| HttpParseError::MalformedRequestLine(request_line.to_string()))?;
+    let method_str = parts
+        .next()
+        .ok_or_else(|| HttpParseError::MalformedRequestLine(request_line.to_string()))?;
+    let target = parts
+        .next()
+        .ok_or_else(|| HttpParseError::MalformedRequestLine(request_line.to_string()))?;
+    let _version = parts
+        .next()
+        .ok_or_else(|| HttpParseError::MalformedRequestLine(request_line.to_string()))?;
 
     let method = match method_str {
         "GET" => Method::Get,
@@ -91,11 +102,18 @@ pub fn parse(raw: &str) -> Result<Request, HttpParseError> {
         if line.is_empty() {
             break; // end of headers
         }
-        let (name, value) = line.split_once(':').ok_or_else(|| HttpParseError::MalformedHeader(line.to_string()))?;
+        let (name, value) = line
+            .split_once(':')
+            .ok_or_else(|| HttpParseError::MalformedHeader(line.to_string()))?;
         headers.insert(name.trim().to_ascii_lowercase(), value.trim().to_string());
     }
 
-    Ok(Request { method, path, query, headers })
+    Ok(Request {
+        method,
+        path,
+        query,
+        headers,
+    })
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -180,17 +198,26 @@ mod tests {
 
     #[test]
     fn malformed_request_line_is_rejected() {
-        assert!(matches!(parse("GET\r\n\r\n"), Err(HttpParseError::MalformedRequestLine(_))));
+        assert!(matches!(
+            parse("GET\r\n\r\n"),
+            Err(HttpParseError::MalformedRequestLine(_))
+        ));
     }
 
     #[test]
     fn unsupported_method_is_rejected() {
-        assert_eq!(parse("DELETE / HTTP/1.1\r\n\r\n"), Err(HttpParseError::UnsupportedMethod("DELETE".to_string())));
+        assert_eq!(
+            parse("DELETE / HTTP/1.1\r\n\r\n"),
+            Err(HttpParseError::UnsupportedMethod("DELETE".to_string()))
+        );
     }
 
     #[test]
     fn malformed_header_line_is_rejected() {
-        assert!(matches!(parse("GET / HTTP/1.1\r\nnotaheader\r\n\r\n"), Err(HttpParseError::MalformedHeader(_))));
+        assert!(matches!(
+            parse("GET / HTTP/1.1\r\nnotaheader\r\n\r\n"),
+            Err(HttpParseError::MalformedHeader(_))
+        ));
     }
 
     #[test]
@@ -211,7 +238,13 @@ mod tests {
 
     #[test]
     fn error_statuses_produce_correct_code_and_reason() {
-        assert_eq!(StatusCode::Unauthorized401.code_and_reason(), (401, "Unauthorized"));
-        assert_eq!(StatusCode::NotFound404.code_and_reason(), (404, "Not Found"));
+        assert_eq!(
+            StatusCode::Unauthorized401.code_and_reason(),
+            (401, "Unauthorized")
+        );
+        assert_eq!(
+            StatusCode::NotFound404.code_and_reason(),
+            (404, "Not Found")
+        );
     }
 }

@@ -86,20 +86,35 @@ mod tests {
 
     fn sample_event(kind: EventKind, result: EventResult) -> Event {
         let id = EventId::new(HostId::from_raw(1), 1, 1, 0);
-        Event::new(id, SessionId::from_raw(1), kind, HlcTimestamp::new(0, 0), Payload::None, result)
+        Event::new(
+            id,
+            SessionId::from_raw(1),
+            kind,
+            HlcTimestamp::new(0, 0),
+            Payload::None,
+            result,
+        )
     }
 
     #[test]
     fn matching_kind_and_result_is_not_a_divergence() {
         let expected = sample_event(EventKind::Syscall, EventResult::Ok(0));
-        let observed = ObservedOperation { kind: EventKind::Syscall, description: "write".into(), result: Some(EventResult::Ok(0)) };
+        let observed = ObservedOperation {
+            kind: EventKind::Syscall,
+            description: "write".into(),
+            result: Some(EventResult::Ok(0)),
+        };
         assert_eq!(check(&expected, &observed), None);
     }
 
     #[test]
     fn different_kind_is_always_a_divergence() {
         let expected = sample_event(EventKind::Syscall, EventResult::Ok(0));
-        let observed = ObservedOperation { kind: EventKind::NetIo, description: "connect".into(), result: None };
+        let observed = ObservedOperation {
+            kind: EventKind::NetIo,
+            description: "connect".into(),
+            result: None,
+        };
         let divergence = check(&expected, &observed).unwrap();
         assert_eq!(divergence.expected, expected.id());
         assert!(divergence.observed_description.contains("NetIo"));
@@ -111,7 +126,10 @@ mod tests {
         let observed = ObservedOperation {
             kind: EventKind::Syscall,
             description: "write".into(),
-            result: Some(EventResult::Err { retval: -1, errno: 9 }),
+            result: Some(EventResult::Err {
+                retval: -1,
+                errno: 9,
+            }),
         };
         assert!(check(&expected, &observed).is_some());
     }
@@ -122,18 +140,34 @@ mod tests {
         // outcome — absence of comparable data must not be misreported as
         // a mismatch.
         let expected = sample_event(EventKind::Syscall, EventResult::Ok(0));
-        let observed = ObservedOperation { kind: EventKind::Syscall, description: "write (entry)".into(), result: None };
+        let observed = ObservedOperation {
+            kind: EventKind::Syscall,
+            description: "write (entry)".into(),
+            result: None,
+        };
         assert_eq!(check(&expected, &observed), None);
     }
 
     #[test]
     fn same_kind_same_result_variant_different_errno_is_a_divergence() {
-        let expected = sample_event(EventKind::Syscall, EventResult::Err { retval: -1, errno: 9 });
+        let expected = sample_event(
+            EventKind::Syscall,
+            EventResult::Err {
+                retval: -1,
+                errno: 9,
+            },
+        );
         let observed = ObservedOperation {
             kind: EventKind::Syscall,
             description: "read".into(),
-            result: Some(EventResult::Err { retval: -1, errno: 11 }),
+            result: Some(EventResult::Err {
+                retval: -1,
+                errno: 11,
+            }),
         };
-        assert!(check(&expected, &observed).is_some(), "different errno is a real behavioral difference");
+        assert!(
+            check(&expected, &observed).is_some(),
+            "different errno is a real behavioral difference"
+        );
     }
 }

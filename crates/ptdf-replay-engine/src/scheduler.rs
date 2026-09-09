@@ -52,29 +52,21 @@ impl DeterministicScheduler {
     /// anything read back from a segment, since segments are
     /// append-ordered per producing thread) — this function does not
     /// re-sort within a thread, only distributes by key.
-   pub fn load(&mut self, mut events: Vec<Event>) {
-    // First globally sort by HLC.
-    events.sort_by_key(|e| e.hlc());
+    pub fn load(&mut self, mut events: Vec<Event>) {
+        // First globally sort by HLC.
+        events.sort_by_key(|e| e.hlc());
 
-    for event in events {
-        let key = (
-            event.id().host_id(),
-            event.id().pid(),
-            event.id().tid(),
-        );
+        for event in events {
+            let key = (event.id().host_id(), event.id().pid(), event.id().tid());
 
-        self.queues
-            .entry(key)
-            .or_default()
-            .events
-            .push_back(event);
+            self.queues.entry(key).or_default().events.push_back(event);
         }
-    }   
+    }
 
     /// Pop the next event to replay: the smallest-HLC head across all
     /// non-empty thread queues, ties broken by `(host_id, pid, tid)` for
     /// reproducibility. Returns `None` once every queue is drained.
-    pub fn next(&mut self) -> Option<Event> {
+    pub fn next_event(&mut self) -> Option<Event> {
         let winning_key = self
             .queues
             .iter()
@@ -95,7 +87,7 @@ impl DeterministicScheduler {
     /// control.
     pub fn drain_all(mut self) -> Vec<Event> {
         let mut out = Vec::new();
-        while let Some(e) = self.next() {
+        while let Some(e) = self.next_event() {
             out.push(e);
         }
         out
@@ -116,7 +108,9 @@ impl DeterministicScheduler {
     /// logic (see `checkpoint.rs`) to record exactly where each thread was
     /// paused.
     pub fn peek_thread(&self, host_id: HostId, pid: u32, tid: u32) -> Option<&Event> {
-        self.queues.get(&(host_id, pid, tid)).and_then(|q| q.events.front())
+        self.queues
+            .get(&(host_id, pid, tid))
+            .and_then(|q| q.events.front())
     }
 
     /// Every distinct host currently contributing pending events —
@@ -152,7 +146,10 @@ pub fn linearize(mut events: Vec<Event>) -> Vec<Event> {
 /// without materializing full `Event` clones — useful for tests and for
 /// checkpoint bookkeeping that only needs identity, not payload.
 pub fn linearized_ids(events: &[Event]) -> Vec<EventId> {
-    linearize(events.to_vec()).into_iter().map(|e| e.id()).collect()
+    linearize(events.to_vec())
+        .into_iter()
+        .map(|e| e.id())
+        .collect()
 }
 
 #[cfg(test)]
@@ -162,7 +159,14 @@ mod tests {
 
     fn ev(host: u128, pid: u32, tid: u32, seq: u64, hlc_ns: u64) -> Event {
         let id = EventId::new(HostId::from_raw(host), pid, tid, seq);
-        Event::new(id, SessionId::from_raw(1), EventKind::Syscall, HlcTimestamp::new(hlc_ns, 0), Payload::None, EventResult::Ok(0))
+        Event::new(
+            id,
+            SessionId::from_raw(1),
+            EventKind::Syscall,
+            HlcTimestamp::new(hlc_ns, 0),
+            Payload::None,
+            EventResult::Ok(0),
+        )
     }
 
     #[test]
@@ -183,9 +187,17 @@ mod tests {
         ];
         let out = linearize(events);
         let hlcs: Vec<u64> = out.iter().map(|e| e.hlc().physical_ns()).collect();
-        assert_eq!(hlcs, vec![10, 15, 20, 25], "must be globally HLC-ordered across threads");
+        assert_eq!(
+            hlcs,
+            vec![10, 15, 20, 25],
+            "must be globally HLC-ordered across threads"
+        );
 
-        let thread1_seqs: Vec<u64> = out.iter().filter(|e| e.id().tid() == 1).map(|e| e.id().seq()).collect();
+        let thread1_seqs: Vec<u64> = out
+            .iter()
+            .filter(|e| e.id().tid() == 1)
+            .map(|e| e.id().seq())
+            .collect();
         assert_eq!(thread1_seqs, vec![0, 1]);
     }
 
@@ -194,7 +206,10 @@ mod tests {
         let events = vec![ev(1, 1, 2, 0, 100), ev(1, 1, 1, 0, 100)];
         let out1 = linearize(events.clone());
         let out2 = linearize(events);
-        assert_eq!(out1.iter().map(|e| e.id()).collect::<Vec<_>>(), out2.iter().map(|e| e.id()).collect::<Vec<_>>());
+        assert_eq!(
+            out1.iter().map(|e| e.id()).collect::<Vec<_>>(),
+            out2.iter().map(|e| e.id()).collect::<Vec<_>>()
+        );
         assert_eq!(out1[0].id().tid(), 1);
     }
 
@@ -205,7 +220,7 @@ mod tests {
         scheduler.load(events.clone());
 
         let mut stepped = Vec::new();
-        while let Some(e) = scheduler.next() {
+        while let Some(e) = scheduler.next_event() {
             stepped.push(e.id());
         }
         assert_eq!(stepped, linearized_ids(&events));
@@ -219,12 +234,12 @@ mod tests {
         assert_eq!(scheduler.active_thread_count(), 2);
         assert!(!scheduler.is_finished());
 
-        scheduler.next();
+        scheduler.next_event();
         assert_eq!(scheduler.active_thread_count(), 1);
-        scheduler.next();
+        scheduler.next_event();
         assert_eq!(scheduler.active_thread_count(), 0);
         assert!(scheduler.is_finished());
-        assert!(scheduler.next().is_none());
+        assert!(scheduler.next_event().is_none());
     }
 
     #[test]
@@ -232,9 +247,19 @@ mod tests {
         let events = vec![ev(1, 1, 1, 0, 1), ev(1, 1, 1, 1, 2)];
         let mut scheduler = DeterministicScheduler::new();
         scheduler.load(events);
-        let peeked = scheduler.peek_thread(HostId::from_raw(1), 1, 1).unwrap().id();
+        let peeked = scheduler
+            .peek_thread(HostId::from_raw(1), 1, 1)
+            .unwrap()
+            .id();
         assert_eq!(peeked.seq(), 0);
-        assert_eq!(scheduler.peek_thread(HostId::from_raw(1), 1, 1).unwrap().id().seq(), 0);
+        assert_eq!(
+            scheduler
+                .peek_thread(HostId::from_raw(1), 1, 1)
+                .unwrap()
+                .id()
+                .seq(),
+            0
+        );
         assert_eq!(scheduler.active_thread_count(), 1);
     }
 
@@ -263,8 +288,16 @@ mod tests {
 
         let out = linearize(events);
 
-        let host_a_seqs: Vec<u64> = out.iter().filter(|e| e.id().host_id() == HostId::from_raw(host_a)).map(|e| e.id().seq()).collect();
-        let host_b_seqs: Vec<u64> = out.iter().filter(|e| e.id().host_id() == HostId::from_raw(host_b)).map(|e| e.id().seq()).collect();
+        let host_a_seqs: Vec<u64> = out
+            .iter()
+            .filter(|e| e.id().host_id() == HostId::from_raw(host_a))
+            .map(|e| e.id().seq())
+            .collect();
+        let host_b_seqs: Vec<u64> = out
+            .iter()
+            .filter(|e| e.id().host_id() == HostId::from_raw(host_b))
+            .map(|e| e.id().seq())
+            .collect();
         assert_eq!(host_a_seqs, vec![0, 1]);
         assert_eq!(host_b_seqs, vec![0, 1]);
 
@@ -279,7 +312,14 @@ mod tests {
         scheduler.load(events);
         let mut hosts = scheduler.active_hosts();
         hosts.sort();
-        assert_eq!(hosts, vec![HostId::from_raw(1), HostId::from_raw(2), HostId::from_raw(3)]);
+        assert_eq!(
+            hosts,
+            vec![
+                HostId::from_raw(1),
+                HostId::from_raw(2),
+                HostId::from_raw(3)
+            ]
+        );
     }
 
     #[test]

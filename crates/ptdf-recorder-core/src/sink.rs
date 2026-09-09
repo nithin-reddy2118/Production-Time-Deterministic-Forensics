@@ -45,7 +45,6 @@ struct BoundedSinkState {
     closed: bool,
 }
 
-
 /// A capacity-bounded `RecorderSink`. When full:
 ///   - Load-bearing events (`Event::is_load_bearing`, §8) evict the oldest
 ///     *non*-load-bearing event to make room, if one exists.
@@ -67,7 +66,10 @@ pub struct BoundedSink {
 impl BoundedSink {
     pub fn new(capacity: usize) -> Self {
         Self {
-            state: Mutex::new(BoundedSinkState { queue: VecDeque::with_capacity(capacity), closed: false }),
+            state: Mutex::new(BoundedSinkState {
+                queue: VecDeque::with_capacity(capacity),
+                closed: false,
+            }),
             capacity,
             shed_count: std::sync::atomic::AtomicU64::new(0),
         }
@@ -82,7 +84,11 @@ impl BoundedSink {
     }
 
     pub fn len(&self) -> usize {
-        self.state.lock().expect("BoundedSink mutex poisoned").queue.len()
+        self.state
+            .lock()
+            .expect("BoundedSink mutex poisoned")
+            .queue
+            .len()
     }
 
     pub fn is_empty(&self) -> bool {
@@ -90,7 +96,10 @@ impl BoundedSink {
     }
 
     pub fn close(&self) {
-        self.state.lock().expect("BoundedSink mutex poisoned").closed = true;
+        self.state
+            .lock()
+            .expect("BoundedSink mutex poisoned")
+            .closed = true;
     }
 }
 
@@ -111,7 +120,8 @@ impl RecorderSink for BoundedSink {
             // Evict the oldest non-load-bearing event to make room, if any.
             if let Some(pos) = state.queue.iter().position(|e| !e.is_load_bearing()) {
                 state.queue.remove(pos);
-                self.shed_count.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                self.shed_count
+                    .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                 state.queue.push_back(event);
             } else {
                 // Entirely load-bearing queue: grow past capacity rather
@@ -120,7 +130,8 @@ impl RecorderSink for BoundedSink {
             }
         } else {
             // Non-load-bearing and queue is full: shed the incoming event.
-            self.shed_count.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            self.shed_count
+                .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         }
 
         Ok(())
@@ -139,7 +150,14 @@ mod tests {
     fn make_event(kind: EventKind, seq: u64) -> Event {
         let host = HostId::from_raw(1);
         let id = ptdf_types::EventId::new(host, 1, 1, seq);
-        Event::new(id, SessionId::from_raw(1), kind, HlcTimestamp::new(seq, 0), Payload::None, EventResult::Ok(0))
+        Event::new(
+            id,
+            SessionId::from_raw(1),
+            kind,
+            HlcTimestamp::new(seq, 0),
+            Payload::None,
+            EventResult::Ok(0),
+        )
     }
 
     #[test]
@@ -176,10 +194,17 @@ mod tests {
         sink.push(make_event(EventKind::Syscall, 2)).unwrap();
 
         assert_eq!(sink.len(), 2);
-        assert_eq!(sink.shed_count(), 1, "one ClockRead was evicted to make room");
+        assert_eq!(
+            sink.shed_count(),
+            1,
+            "one ClockRead was evicted to make room"
+        );
         let drained = sink.drain_batch(10);
         let kinds: Vec<_> = drained.iter().map(|e| e.kind()).collect();
-        assert!(kinds.contains(&EventKind::Syscall), "the load-bearing event must survive");
+        assert!(
+            kinds.contains(&EventKind::Syscall),
+            "the load-bearing event must survive"
+        );
     }
 
     #[test]
@@ -189,8 +214,16 @@ mod tests {
         sink.push(make_event(EventKind::Syscall, 1)).unwrap();
         sink.push(make_event(EventKind::NetIo, 2)).unwrap();
 
-        assert_eq!(sink.len(), 3, "queue must grow past capacity rather than drop a load-bearing event");
-        assert_eq!(sink.shed_count(), 0, "no load-bearing event may ever be counted as shed");
+        assert_eq!(
+            sink.len(),
+            3,
+            "queue must grow past capacity rather than drop a load-bearing event"
+        );
+        assert_eq!(
+            sink.shed_count(),
+            0,
+            "no load-bearing event may ever be counted as shed"
+        );
     }
 
     #[test]

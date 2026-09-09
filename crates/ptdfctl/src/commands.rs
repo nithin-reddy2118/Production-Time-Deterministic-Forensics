@@ -50,7 +50,11 @@ pub fn inspect_segment(path: impl AsRef<Path>) -> Result<SegmentSummary, CliErro
         *counts_by_kind.entry(kind_name(event.kind())).or_insert(0) += 1;
     }
 
-    Ok(SegmentSummary { compressed, event_count: events.len() as u64, counts_by_kind })
+    Ok(SegmentSummary {
+        compressed,
+        event_count: events.len() as u64,
+        counts_by_kind,
+    })
 }
 
 /// `ptdfctl segment dump <path> [--limit N]` — one human-readable line per
@@ -97,7 +101,14 @@ mod tests {
         let mut writer = SegmentWriter::create(path).unwrap();
         for (i, &kind) in kinds.iter().enumerate() {
             let id = EventId::new(HostId::from_raw(1), 1, 1, i as u64);
-            let ev = Event::new(id, SessionId::from_raw(1), kind, HlcTimestamp::new(i as u64, 0), Payload::None, EventResult::Ok(0));
+            let ev = Event::new(
+                id,
+                SessionId::from_raw(1),
+                kind,
+                HlcTimestamp::new(i as u64, 0),
+                Payload::None,
+                EventResult::Ok(0),
+            );
             writer.append(&ev).unwrap();
         }
         writer.seal().unwrap();
@@ -107,7 +118,10 @@ mod tests {
     fn inspect_counts_events_by_kind() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("s.ptds");
-        write_sample_segment(&path, &[EventKind::Syscall, EventKind::Syscall, EventKind::NetIo]);
+        write_sample_segment(
+            &path,
+            &[EventKind::Syscall, EventKind::Syscall, EventKind::NetIo],
+        );
 
         let summary = inspect_segment(&path).unwrap();
         assert_eq!(summary.event_count, 3);

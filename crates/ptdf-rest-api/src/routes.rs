@@ -8,7 +8,9 @@ use crate::http::{self, json_response, text_response, Method, Request, StatusCod
 use ptdf_metadata::MetadataStore;
 use ptdf_metrics::Registry;
 use ptdf_replay_engine::ReplayEngine;
-use ptdf_security::{authorize, ApiKeyAuthenticator, AuditLogger, AuditOutcome, Permission, Principal};
+use ptdf_security::{
+    authorize, ApiKeyAuthenticator, AuditLogger, AuditOutcome, Permission, Principal,
+};
 use ptdf_types::SessionId;
 use serde::Serialize;
 use std::sync::Arc;
@@ -27,29 +29,56 @@ impl std::fmt::Debug for AppState {
 }
 
 fn bearer_token(req: &Request) -> &str {
-    req.header("authorization").and_then(|h| h.strip_prefix("Bearer ")).unwrap_or("")
+    req.header("authorization")
+        .and_then(|h| h.strip_prefix("Bearer "))
+        .unwrap_or("")
 }
 
 /// Authenticate the request and authorize it for `permission`, auditing
 /// both the allow and deny paths. Returns the authenticated `Principal` on
 /// success, or the response to send back on failure.
-fn authenticate_and_authorize(state: &AppState, req: &Request, path: &str, permission: Permission) -> Result<Principal, Vec<u8>> {
+fn authenticate_and_authorize(
+    state: &AppState,
+    req: &Request,
+    path: &str,
+    permission: Permission,
+) -> Result<Principal, Vec<u8>> {
     let token = bearer_token(req);
     let principal = match state.authenticator.authenticate(token) {
         Ok(p) => p.clone(),
         Err(_) => {
-            return Err(text_response(StatusCode::Unauthorized401, "unauthorized: missing or invalid API key"));
+            return Err(text_response(
+                StatusCode::Unauthorized401,
+                "unauthorized: missing or invalid API key",
+            ));
         }
     };
 
     match authorize(principal.role, permission) {
         Ok(()) => {
-            let _ = state.audit.record(&principal.id, principal.role, permission, "http_request", path, AuditOutcome::Allowed);
+            let _ = state.audit.record(
+                &principal.id,
+                principal.role,
+                permission,
+                "http_request",
+                path,
+                AuditOutcome::Allowed,
+            );
             Ok(principal)
         }
         Err(_) => {
-            let _ = state.audit.record(&principal.id, principal.role, permission, "http_request", path, AuditOutcome::Denied);
-            Err(text_response(StatusCode::Forbidden403, "forbidden: insufficient role for this operation"))
+            let _ = state.audit.record(
+                &principal.id,
+                principal.role,
+                permission,
+                "http_request",
+                path,
+                AuditOutcome::Denied,
+            );
+            Err(text_response(
+                StatusCode::Forbidden403,
+                "forbidden: insufficient role for this operation",
+            ))
         }
     }
 }
@@ -84,7 +113,10 @@ fn parse_session_id(raw: &str) -> Option<SessionId> {
 /// back to the client.
 pub fn handle_request(state: &AppState, req: &Request) -> Vec<u8> {
     if req.method != Method::Get {
-        return text_response(StatusCode::BadRequest400, "only GET is supported by this API");
+        return text_response(
+            StatusCode::BadRequest400,
+            "only GET is supported by this API",
+        );
     }
 
     let segments: Vec<&str> = req.path.trim_matches('/').split('/').collect();
@@ -94,16 +126,25 @@ pub fn handle_request(state: &AppState, req: &Request) -> Vec<u8> {
 
         ["health"] => text_response(StatusCode::Ok200, "ok"),
 
-        ["metrics"] => match authenticate_and_authorize(state, req, &req.path, Permission::ViewMetrics) {
-            Ok(_principal) => http::build_response(StatusCode::Ok200, "text/plain; version=0.0.4", state.metrics_registry.render().as_bytes()),
-            Err(resp) => resp,
-        },
+        ["metrics"] => {
+            match authenticate_and_authorize(state, req, &req.path, Permission::ViewMetrics) {
+                Ok(_principal) => http::build_response(
+                    StatusCode::Ok200,
+                    "text/plain; version=0.0.4",
+                    state.metrics_registry.render().as_bytes(),
+                ),
+                Err(resp) => resp,
+            }
+        }
 
         ["sessions", session_id_raw, "segments"] => {
             match authenticate_and_authorize(state, req, &req.path, Permission::QuerySessions) {
                 Ok(_principal) => {
                     let Some(session_id) = parse_session_id(session_id_raw) else {
-                        return text_response(StatusCode::BadRequest400, "invalid session id: must be a u128");
+                        return text_response(
+                            StatusCode::BadRequest400,
+                            "invalid session id: must be a u128",
+                        );
                     };
                     match state.metadata.segments_for_session(session_id) {
                         Ok(records) => {
@@ -120,7 +161,10 @@ pub fn handle_request(state: &AppState, req: &Request) -> Vec<u8> {
                                 .collect();
                             match serde_json::to_vec(&dtos) {
                                 Ok(body) => json_response(StatusCode::Ok200, &body),
-                                Err(_) => text_response(StatusCode::InternalServerError500, "failed to serialize response"),
+                                Err(_) => text_response(
+                                    StatusCode::InternalServerError500,
+                                    "failed to serialize response",
+                                ),
                             }
                         }
                         Err(_) => text_response(StatusCode::NotFound404, "unknown session"),
@@ -134,14 +178,21 @@ pub fn handle_request(state: &AppState, req: &Request) -> Vec<u8> {
             match authenticate_and_authorize(state, req, &req.path, Permission::QuerySessions) {
                 Ok(_principal) => {
                     let Some(session_id) = parse_session_id(session_id_raw) else {
-                        return text_response(StatusCode::BadRequest400, "invalid session id: must be a u128");
+                        return text_response(
+                            StatusCode::BadRequest400,
+                            "invalid session id: must be a u128",
+                        );
                     };
                     match state.metadata.hosts_for_session(session_id) {
                         Ok(hosts) => {
-                            let host_strings: Vec<String> = hosts.iter().map(|h| h.to_string()).collect();
+                            let host_strings: Vec<String> =
+                                hosts.iter().map(|h| h.to_string()).collect();
                             match serde_json::to_vec(&host_strings) {
                                 Ok(body) => json_response(StatusCode::Ok200, &body),
-                                Err(_) => text_response(StatusCode::InternalServerError500, "failed to serialize response"),
+                                Err(_) => text_response(
+                                    StatusCode::InternalServerError500,
+                                    "failed to serialize response",
+                                ),
                             }
                         }
                         Err(_) => text_response(StatusCode::NotFound404, "unknown session"),
@@ -155,16 +206,24 @@ pub fn handle_request(state: &AppState, req: &Request) -> Vec<u8> {
             match authenticate_and_authorize(state, req, &req.path, Permission::QuerySessions) {
                 Ok(_principal) => {
                     let Some(session_id) = parse_session_id(session_id_raw) else {
-                        return text_response(StatusCode::BadRequest400, "invalid session id: must be a u128");
+                        return text_response(
+                            StatusCode::BadRequest400,
+                            "invalid session id: must be a u128",
+                        );
                     };
                     // Real use of the Replay Engine's linearization for a
                     // read-only query, not just replay driving — §17
                     // explicitly calls out event queries as a Query API
                     // capability distinct from full replay.
-                    match ReplayEngine::load_linearized_events(state.metadata.as_ref(), session_id) {
+                    match ReplayEngine::load_linearized_events(state.metadata.as_ref(), session_id)
+                    {
                         Ok(events) => {
                             let kind_filter = req.query.get("kind").map(|s| s.as_str());
-                            let limit: usize = req.query.get("limit").and_then(|s| s.parse().ok()).unwrap_or(usize::MAX);
+                            let limit: usize = req
+                                .query
+                                .get("limit")
+                                .and_then(|s| s.parse().ok())
+                                .unwrap_or(usize::MAX);
 
                             let dtos: Vec<EventDto> = events
                                 .iter()
@@ -184,10 +243,16 @@ pub fn handle_request(state: &AppState, req: &Request) -> Vec<u8> {
 
                             match serde_json::to_vec(&dtos) {
                                 Ok(body) => json_response(StatusCode::Ok200, &body),
-                                Err(_) => text_response(StatusCode::InternalServerError500, "failed to serialize response"),
+                                Err(_) => text_response(
+                                    StatusCode::InternalServerError500,
+                                    "failed to serialize response",
+                                ),
                             }
                         }
-                        Err(_) => text_response(StatusCode::NotFound404, "unknown session or no segments registered"),
+                        Err(_) => text_response(
+                            StatusCode::NotFound404,
+                            "unknown session or no segments registered",
+                        ),
                     }
                 }
                 Err(resp) => resp,
@@ -214,8 +279,24 @@ mod tests {
         std::mem::forget(dir);
 
         let mut authenticator = ApiKeyAuthenticator::new();
-        authenticator.register_key("viewer-key", Principal { id: "viewer".into(), role: Role::Viewer }).unwrap();
-        authenticator.register_key("operator-key", Principal { id: "operator".into(), role: Role::Operator }).unwrap();
+        authenticator
+            .register_key(
+                "viewer-key",
+                Principal {
+                    id: "viewer".into(),
+                    role: Role::Viewer,
+                },
+            )
+            .unwrap();
+        authenticator
+            .register_key(
+                "operator-key",
+                Principal {
+                    id: "operator".into(),
+                    role: Role::Operator,
+                },
+            )
+            .unwrap();
 
         AppState {
             metadata: Arc::new(InMemoryMetadataStore::new()),
@@ -226,7 +307,9 @@ mod tests {
     }
 
     fn get(path: &str, bearer: Option<&str>) -> Request {
-        let auth_header = bearer.map(|t| format!("Authorization: Bearer {t}\r\n")).unwrap_or_default();
+        let auth_header = bearer
+            .map(|t| format!("Authorization: Bearer {t}\r\n"))
+            .unwrap_or_default();
         let raw = format!("GET {path} HTTP/1.1\r\n{auth_header}\r\n");
         http::parse(&raw).unwrap()
     }
@@ -251,7 +334,11 @@ mod tests {
     #[test]
     fn metrics_with_valid_viewer_key_succeeds() {
         let state = test_state();
-        state.metrics_registry.counter("ptdf_test_total", "test").unwrap().inc();
+        state
+            .metrics_registry
+            .counter("ptdf_test_total", "test")
+            .unwrap()
+            .inc();
         let resp = handle_request(&state, &get("/metrics", Some("viewer-key")));
         let text = String::from_utf8(resp).unwrap();
         assert!(text.starts_with("HTTP/1.1 200"));
@@ -299,7 +386,10 @@ mod tests {
     #[test]
     fn invalid_session_id_is_bad_request() {
         let state = test_state();
-        let resp = handle_request(&state, &get("/sessions/not-a-number/segments", Some("viewer-key")));
+        let resp = handle_request(
+            &state,
+            &get("/sessions/not-a-number/segments", Some("viewer-key")),
+        );
         let text = String::from_utf8(resp).unwrap();
         assert!(text.starts_with("HTTP/1.1 400"));
     }
@@ -348,7 +438,14 @@ mod tests {
         let mut writer = SegmentWriter::create(&path).unwrap();
         for seq in 0..3u64 {
             let id = EventId::new(host, 1, 1, seq);
-            let ev = Event::new(id, session, EventKind::Syscall, HlcTimestamp::new(seq, 0), Payload::None, EventResult::Ok(0));
+            let ev = Event::new(
+                id,
+                session,
+                EventKind::Syscall,
+                HlcTimestamp::new(seq, 0),
+                Payload::None,
+                EventResult::Ok(0),
+            );
             writer.append(&ev).unwrap();
         }
         let info = writer.seal().unwrap();
@@ -388,7 +485,14 @@ mod tests {
         let mut writer = SegmentWriter::create(&path).unwrap();
         for seq in 0..5u64 {
             let id = EventId::new(host, 1, 1, seq);
-            let ev = Event::new(id, session, EventKind::Syscall, HlcTimestamp::new(seq, 0), Payload::None, EventResult::Ok(0));
+            let ev = Event::new(
+                id,
+                session,
+                EventKind::Syscall,
+                HlcTimestamp::new(seq, 0),
+                Payload::None,
+                EventResult::Ok(0),
+            );
             writer.append(&ev).unwrap();
         }
         let info = writer.seal().unwrap();
@@ -405,7 +509,10 @@ mod tests {
             })
             .unwrap();
 
-        let resp = handle_request(&state, &get("/sessions/8/events?limit=2", Some("viewer-key")));
+        let resp = handle_request(
+            &state,
+            &get("/sessions/8/events?limit=2", Some("viewer-key")),
+        );
         let text = String::from_utf8(resp).unwrap();
         let body_start = text.find("\r\n\r\n").unwrap() + 4;
         let parsed: serde_json::Value = serde_json::from_str(&text[body_start..]).unwrap();

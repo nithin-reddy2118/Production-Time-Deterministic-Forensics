@@ -80,7 +80,10 @@ mod tests {
         let hlc = HlcTimestamp::new(1, 0);
         let wire = encode(hlc, b"data");
         let truncated = &wire[..PIGGYBACK_LEN - 1];
-        assert_eq!(decode(truncated), Err(PiggybackError::TooShort(PIGGYBACK_LEN - 1)));
+        assert_eq!(
+            decode(truncated),
+            Err(PiggybackError::TooShort(PIGGYBACK_LEN - 1))
+        );
     }
 
     #[test]

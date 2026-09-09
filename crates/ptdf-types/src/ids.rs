@@ -64,7 +64,12 @@ pub struct EventId {
 
 impl EventId {
     pub const fn new(host_id: HostId, pid: u32, tid: u32, seq: u64) -> Self {
-        Self { host_id, pid, tid, seq }
+        Self {
+            host_id,
+            pid,
+            tid,
+            seq,
+        }
     }
 
     pub const fn host_id(&self) -> HostId {
@@ -130,9 +135,6 @@ mod tests {
     #[test]
     fn display_formats_are_stable() {
         let h = HostId::from_raw(0x1);
-        assert_eq!(
-            format!("{h}"),
-            "00000000000000000000000000000001"
-        );
+        assert_eq!(format!("{h}"), "00000000000000000000000000000001");
     }
 }

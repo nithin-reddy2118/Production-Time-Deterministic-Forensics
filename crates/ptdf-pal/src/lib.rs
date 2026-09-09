@@ -19,5 +19,7 @@
 pub mod interceptor;
 pub mod replay;
 
-pub use interceptor::{AttachTarget, InterceptorCapabilities, InterceptorError, PlatformInterceptor};
+pub use interceptor::{
+    AttachTarget, InterceptorCapabilities, InterceptorError, PlatformInterceptor,
+};
 pub use replay::{Divergence, ReplayDriver, ReplayError, StepOutcome};

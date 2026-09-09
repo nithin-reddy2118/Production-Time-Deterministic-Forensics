@@ -59,7 +59,11 @@ pub enum SegmentError {
     Compression(String),
 
     #[error("checksum mismatch in segment at record starting at byte offset {offset}: expected {expected:#010x}, computed {computed:#010x}")]
-    ChecksumMismatch { offset: u64, expected: u32, computed: u32 },
+    ChecksumMismatch {
+        offset: u64,
+        expected: u32,
+        computed: u32,
+    },
 
     #[error("segment is already sealed and cannot accept further writes")]
     AlreadySealed,
@@ -113,13 +117,27 @@ impl SegmentWriter {
 
     fn create_inner(path: impl AsRef<Path>, zstd_level: Option<i32>) -> Result<Self, SegmentError> {
         let path = path.as_ref().to_path_buf();
-        let file = OpenOptions::new().write(true).create_new(true).open(&path)?;
+        let file = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&path)?;
         let mut writer = BufWriter::new(file);
         writer.write_all(MAGIC)?;
-        let version = if zstd_level.is_some() { FORMAT_VERSION_ZSTD } else { FORMAT_VERSION_UNCOMPRESSED };
+        let version = if zstd_level.is_some() {
+            FORMAT_VERSION_ZSTD
+        } else {
+            FORMAT_VERSION_UNCOMPRESSED
+        };
         writer.write_all(&[version])?;
         writer.flush()?;
-        Ok(Self { path, writer, event_count: 0, bytes_written: 5, sealed: false, zstd_level })
+        Ok(Self {
+            path,
+            writer,
+            event_count: 0,
+            bytes_written: 5,
+            sealed: false,
+            zstd_level,
+        })
     }
 
     /// Append one event, flushing immediately (crash-safety: architecture
@@ -144,7 +162,8 @@ impl SegmentWriter {
         // hit, so that's what integrity-checking must cover.
         let crc = crc32(&on_disk);
 
-        self.writer.write_all(&(on_disk.len() as u32).to_le_bytes())?;
+        self.writer
+            .write_all(&(on_disk.len() as u32).to_le_bytes())?;
         self.writer.write_all(&on_disk)?;
         self.writer.write_all(&crc.to_le_bytes())?;
         self.writer.flush()?;
@@ -174,7 +193,11 @@ impl SegmentWriter {
         self.writer.flush()?;
         self.writer.get_ref().sync_all()?;
         self.sealed = true;
-        Ok(SealedSegmentInfo { path: self.path.clone(), event_count: self.event_count, size_bytes: self.bytes_written })
+        Ok(SealedSegmentInfo {
+            path: self.path.clone(),
+            event_count: self.event_count,
+            size_bytes: self.bytes_written,
+        })
     }
 }
 
@@ -215,7 +238,11 @@ impl SegmentReader {
             }
         };
 
-        Ok(Self { reader, offset: 5, compressed })
+        Ok(Self {
+            reader,
+            offset: 5,
+            compressed,
+        })
     }
 
     pub fn is_compressed(&self) -> bool {
@@ -241,13 +268,18 @@ impl SegmentReader {
         let expected_crc = u32::from_le_bytes(crc_buf);
         let computed_crc = crc32(&on_disk);
         if expected_crc != computed_crc {
-            return Err(SegmentError::ChecksumMismatch { offset: record_offset, expected: expected_crc, computed: computed_crc });
+            return Err(SegmentError::ChecksumMismatch {
+                offset: record_offset,
+                expected: expected_crc,
+                computed: computed_crc,
+            });
         }
 
         self.offset += 4 + record_len as u64 + 4;
 
         let encoded = if self.compressed {
-            zstd::stream::decode_all(&on_disk[..]).map_err(|e| SegmentError::Compression(e.to_string()))?
+            zstd::stream::decode_all(&on_disk[..])
+                .map_err(|e| SegmentError::Compression(e.to_string()))?
         } else {
             on_disk
         };
@@ -275,7 +307,14 @@ mod tests {
 
     fn sample_event(seq: u64) -> Event {
         let id = EventId::new(HostId::from_raw(1), 100, 200, seq);
-        Event::new(id, SessionId::from_raw(1), EventKind::Syscall, HlcTimestamp::new(seq, 0), Payload::Inline(vec![seq as u8; 8]), EventResult::Ok(0))
+        Event::new(
+            id,
+            SessionId::from_raw(1),
+            EventKind::Syscall,
+            HlcTimestamp::new(seq, 0),
+            Payload::Inline(vec![seq as u8; 8]),
+            EventResult::Ok(0),
+        )
     }
 
     #[test]
@@ -319,7 +358,10 @@ mod tests {
         let path = dir.path().join("segment-0003.ptds");
         let _w1 = SegmentWriter::create(&path).unwrap();
         let w2 = SegmentWriter::create(&path);
-        assert!(w2.is_err(), "creating a segment at an existing path must fail, not silently reopen it");
+        assert!(
+            w2.is_err(),
+            "creating a segment at an existing path must fail, not silently reopen it"
+        );
     }
 
     #[test]
@@ -436,7 +478,14 @@ mod tests {
         // structures per §11's stated rationale for compressing this data.
         let make_event = |seq: u64| {
             let id = EventId::new(HostId::from_raw(1), 1, 1, seq);
-            Event::new(id, SessionId::from_raw(1), EventKind::Syscall, HlcTimestamp::new(seq, 0), Payload::Inline(vec![0xAB; 512]), EventResult::Ok(0))
+            Event::new(
+                id,
+                SessionId::from_raw(1),
+                EventKind::Syscall,
+                HlcTimestamp::new(seq, 0),
+                Payload::Inline(vec![0xAB; 512]),
+                EventResult::Ok(0),
+            )
         };
 
         let mut plain = SegmentWriter::create(&plain_path).unwrap();

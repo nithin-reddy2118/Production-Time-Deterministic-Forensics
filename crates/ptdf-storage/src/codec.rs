@@ -6,7 +6,9 @@
 //! choices (which can change between major versions), since old segments
 //! must remain readable indefinitely.
 
-use ptdf_types::{ContentHash, Event, EventId, EventKind, EventResult, HlcTimestamp, HostId, Payload, SessionId};
+use ptdf_types::{
+    ContentHash, Event, EventId, EventKind, EventResult, HlcTimestamp, HostId, Payload, SessionId,
+};
 use thiserror::Error;
 
 /// Format version tag written at the start of every encoded record, so a
@@ -223,7 +225,10 @@ pub fn decode_event(buf: &[u8]) -> Result<Event, CodecError> {
 
     let version = r.u8()?;
     if version != CODEC_VERSION {
-        return Err(CodecError::UnsupportedVersion { found: version, supported: CODEC_VERSION });
+        return Err(CodecError::UnsupportedVersion {
+            found: version,
+            supported: CODEC_VERSION,
+        });
     }
 
     let host_id = HostId::from_raw(r.u128()?);
@@ -272,12 +277,23 @@ mod tests {
 
     fn sample(kind: EventKind, payload: Payload, result: EventResult) -> Event {
         let id = EventId::new(HostId::from_raw(0xAB), 10, 20, 30);
-        Event::new(id, SessionId::from_raw(0xCD), kind, HlcTimestamp::new(123_456, 7), payload, result)
+        Event::new(
+            id,
+            SessionId::from_raw(0xCD),
+            kind,
+            HlcTimestamp::new(123_456, 7),
+            payload,
+            result,
+        )
     }
 
     #[test]
     fn round_trip_inline_payload() {
-        let ev = sample(EventKind::Syscall, Payload::Inline(vec![1, 2, 3, 4]), EventResult::Ok(0));
+        let ev = sample(
+            EventKind::Syscall,
+            Payload::Inline(vec![1, 2, 3, 4]),
+            EventResult::Ok(0),
+        );
         let encoded = encode_event(&ev);
         let decoded = decode_event(&encoded).unwrap();
         assert_eq!(ev, decoded);
@@ -285,7 +301,11 @@ mod tests {
 
     #[test]
     fn round_trip_blob_ref_payload() {
-        let ev = sample(EventKind::NetIo, Payload::BlobRef(ContentHash::from_bytes([9u8; 32])), EventResult::Ok(1));
+        let ev = sample(
+            EventKind::NetIo,
+            Payload::BlobRef(ContentHash::from_bytes([9u8; 32])),
+            EventResult::Ok(1),
+        );
         let encoded = encode_event(&ev);
         let decoded = decode_event(&encoded).unwrap();
         assert_eq!(ev, decoded);
@@ -301,7 +321,14 @@ mod tests {
 
     #[test]
     fn round_trip_err_result() {
-        let ev = sample(EventKind::Syscall, Payload::None, EventResult::Err { retval: -1, errno: 11 });
+        let ev = sample(
+            EventKind::Syscall,
+            Payload::None,
+            EventResult::Err {
+                retval: -1,
+                errno: 11,
+            },
+        );
         let encoded = encode_event(&ev);
         let decoded = decode_event(&encoded).unwrap();
         assert_eq!(ev, decoded);
@@ -309,7 +336,11 @@ mod tests {
 
     #[test]
     fn round_trip_status_result() {
-        let ev = sample(EventKind::Syscall, Payload::None, EventResult::Status(-1073741819));
+        let ev = sample(
+            EventKind::Syscall,
+            Payload::None,
+            EventResult::Status(-1073741819),
+        );
         let encoded = encode_event(&ev);
         let decoded = decode_event(&encoded).unwrap();
         assert_eq!(ev, decoded);
@@ -336,10 +367,17 @@ mod tests {
 
     #[test]
     fn decode_rejects_truncated_buffer() {
-        let ev = sample(EventKind::Syscall, Payload::Inline(vec![1, 2, 3]), EventResult::Ok(0));
+        let ev = sample(
+            EventKind::Syscall,
+            Payload::Inline(vec![1, 2, 3]),
+            EventResult::Ok(0),
+        );
         let mut encoded = encode_event(&ev);
         encoded.truncate(encoded.len() - 2);
-        assert!(matches!(decode_event(&encoded), Err(CodecError::UnexpectedEof { .. })));
+        assert!(matches!(
+            decode_event(&encoded),
+            Err(CodecError::UnexpectedEof { .. })
+        ));
     }
 
     #[test]
@@ -349,7 +387,10 @@ mod tests {
         encoded[0] = 99;
         assert_eq!(
             decode_event(&encoded),
-            Err(CodecError::UnsupportedVersion { found: 99, supported: CODEC_VERSION })
+            Err(CodecError::UnsupportedVersion {
+                found: 99,
+                supported: CODEC_VERSION
+            })
         );
     }
 
@@ -361,6 +402,9 @@ mod tests {
         // + session_id(16) = offset 49 is the kind tag byte.
         let kind_offset = 1 + 16 + 4 + 4 + 8 + 16;
         encoded[kind_offset] = 200;
-        assert_eq!(decode_event(&encoded), Err(CodecError::InvalidEventKindTag(200)));
+        assert_eq!(
+            decode_event(&encoded),
+            Err(CodecError::InvalidEventKindTag(200))
+        );
     }
 }

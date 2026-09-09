@@ -46,7 +46,11 @@ impl SyscallInfo {
     }
 
     pub fn unknown(number: u64) -> Self {
-        Self { number, name: "unknown", kind: EventKind::Syscall }
+        Self {
+            number,
+            name: "unknown",
+            kind: EventKind::Syscall,
+        }
     }
 }
 
@@ -112,7 +116,11 @@ mod tests {
     #[test]
     fn network_syscalls_map_to_net_io_kind() {
         for n in [41, 42, 43, 44, 45] {
-            assert_eq!(lookup(n).kind, EventKind::NetIo, "syscall {n} should be NetIo");
+            assert_eq!(
+                lookup(n).kind,
+                EventKind::NetIo,
+                "syscall {n} should be NetIo"
+            );
         }
     }
 
@@ -121,13 +129,21 @@ mod tests {
         let info = lookup(9999);
         assert_eq!(info.name, "unknown");
         assert_eq!(info.number, 9999);
-        assert_eq!(info.kind, EventKind::Syscall, "unrecognized syscalls default to Syscall kind");
+        assert_eq!(
+            info.kind,
+            EventKind::Syscall,
+            "unrecognized syscalls default to Syscall kind"
+        );
     }
 
     #[test]
     fn clock_syscalls_map_to_clock_read_kind() {
         for n in [96, 228] {
-            assert_eq!(lookup(n).kind, EventKind::ClockRead, "syscall {n} should be ClockRead");
+            assert_eq!(
+                lookup(n).kind,
+                EventKind::ClockRead,
+                "syscall {n} should be ClockRead"
+            );
         }
     }
 
@@ -139,7 +155,13 @@ mod tests {
 
     #[test]
     fn thread_and_process_lifecycle_syscalls_are_named() {
-        for (n, name) in [(56, "clone"), (57, "fork"), (59, "execve"), (61, "wait4"), (247, "waitid")] {
+        for (n, name) in [
+            (56, "clone"),
+            (57, "fork"),
+            (59, "execve"),
+            (61, "wait4"),
+            (247, "waitid"),
+        ] {
             assert_eq!(lookup(n).name, name);
         }
     }

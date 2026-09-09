@@ -36,11 +36,17 @@ pub struct LoggingConfig {
 
 impl LoggingConfig {
     pub fn production_default() -> Self {
-        Self { format: LogFormat::Json, default_filter: "info".to_string() }
+        Self {
+            format: LogFormat::Json,
+            default_filter: "info".to_string(),
+        }
     }
 
     pub fn dev_default() -> Self {
-        Self { format: LogFormat::Pretty, default_filter: "debug".to_string() }
+        Self {
+            format: LogFormat::Pretty,
+            default_filter: "debug".to_string(),
+        }
     }
 }
 

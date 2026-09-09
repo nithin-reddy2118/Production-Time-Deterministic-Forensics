@@ -100,13 +100,17 @@ mod tests {
     use super::*;
 
     fn principal(id: &str, role: Role) -> Principal {
-        Principal { id: id.to_string(), role }
+        Principal {
+            id: id.to_string(),
+            role,
+        }
     }
 
     #[test]
     fn register_then_authenticate_succeeds_with_the_correct_key() {
         let mut auth = ApiKeyAuthenticator::new();
-        auth.register_key("secret-key-123", principal("svc-a", Role::Operator)).unwrap();
+        auth.register_key("secret-key-123", principal("svc-a", Role::Operator))
+            .unwrap();
 
         let result = auth.authenticate("secret-key-123").unwrap();
         assert_eq!(result.id, "svc-a");
@@ -116,38 +120,54 @@ mod tests {
     #[test]
     fn authenticate_with_wrong_key_fails() {
         let mut auth = ApiKeyAuthenticator::new();
-        auth.register_key("correct-key", principal("svc-a", Role::Viewer)).unwrap();
-        assert_eq!(auth.authenticate("wrong-key"), Err(AuthError::InvalidCredentials));
+        auth.register_key("correct-key", principal("svc-a", Role::Viewer))
+            .unwrap();
+        assert_eq!(
+            auth.authenticate("wrong-key"),
+            Err(AuthError::InvalidCredentials)
+        );
     }
 
     #[test]
     fn empty_key_is_rejected_on_both_register_and_authenticate() {
         let mut auth = ApiKeyAuthenticator::new();
-        assert_eq!(auth.register_key("", principal("x", Role::Viewer)), Err(AuthError::EmptyKey));
+        assert_eq!(
+            auth.register_key("", principal("x", Role::Viewer)),
+            Err(AuthError::EmptyKey)
+        );
         assert_eq!(auth.authenticate(""), Err(AuthError::EmptyKey));
     }
 
     #[test]
     fn duplicate_key_registration_is_rejected() {
         let mut auth = ApiKeyAuthenticator::new();
-        auth.register_key("key1", principal("a", Role::Viewer)).unwrap();
-        assert_eq!(auth.register_key("key1", principal("b", Role::Admin)), Err(AuthError::DuplicateKey));
+        auth.register_key("key1", principal("a", Role::Viewer))
+            .unwrap();
+        assert_eq!(
+            auth.register_key("key1", principal("b", Role::Admin)),
+            Err(AuthError::DuplicateKey)
+        );
     }
 
     #[test]
     fn revoked_key_no_longer_authenticates() {
         let mut auth = ApiKeyAuthenticator::new();
-        auth.register_key("key1", principal("a", Role::Viewer)).unwrap();
+        auth.register_key("key1", principal("a", Role::Viewer))
+            .unwrap();
         assert!(auth.authenticate("key1").is_ok());
 
         auth.revoke_key("key1");
-        assert_eq!(auth.authenticate("key1"), Err(AuthError::InvalidCredentials));
+        assert_eq!(
+            auth.authenticate("key1"),
+            Err(AuthError::InvalidCredentials)
+        );
     }
 
     #[test]
     fn raw_key_is_never_stored_verbatim() {
         let mut auth = ApiKeyAuthenticator::new();
-        auth.register_key("super-secret", principal("a", Role::Viewer)).unwrap();
+        auth.register_key("super-secret", principal("a", Role::Viewer))
+            .unwrap();
         // The only stored keys are 32-byte SHA-256 digests, structurally
         // incapable of containing the original ASCII string.
         for stored_digest in auth.keys.keys() {
@@ -169,7 +189,8 @@ mod tests {
     fn a_generated_key_can_be_registered_and_authenticated() {
         let key = generate_random_api_key();
         let mut auth = ApiKeyAuthenticator::new();
-        auth.register_key(&key, principal("generated", Role::Admin)).unwrap();
+        auth.register_key(&key, principal("generated", Role::Admin))
+            .unwrap();
         assert_eq!(auth.authenticate(&key).unwrap().id, "generated");
     }
 }

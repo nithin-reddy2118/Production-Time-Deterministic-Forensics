@@ -56,12 +56,21 @@ pub trait MetadataStore: Send + Sync {
     /// All segments known for a session, in registration order (which is
     /// also chronological, since segments are sealed and registered in
     /// the order they fill up).
-    fn segments_for_session(&self, session_id: SessionId) -> Result<Vec<SegmentRecord>, MetadataError>;
+    fn segments_for_session(
+        &self,
+        session_id: SessionId,
+    ) -> Result<Vec<SegmentRecord>, MetadataError>;
 
     /// Index one event's on-disk location, and its kind for secondary
     /// lookup. `segment_index` refers to the position in
     /// `segments_for_session`'s return order at the time of indexing.
-    fn index_event(&self, event_id: EventId, session_id: SessionId, kind: EventKind, location: EventLocation) -> Result<(), MetadataError>;
+    fn index_event(
+        &self,
+        event_id: EventId,
+        session_id: SessionId,
+        kind: EventKind,
+        location: EventLocation,
+    ) -> Result<(), MetadataError>;
 
     /// Point lookup: where does this event live?
     fn locate_event(&self, event_id: EventId) -> Result<EventLocation, MetadataError>;
@@ -70,7 +79,11 @@ pub trait MetadataStore: Send + Sync {
     /// session (§17: "find all sessions where syscall X returned EAGAIN"
     /// starts from a query like this, refined further by the caller
     /// reading the actual events once located).
-    fn events_by_kind(&self, session_id: SessionId, kind: EventKind) -> Result<Vec<EventId>, MetadataError>;
+    fn events_by_kind(
+        &self,
+        session_id: SessionId,
+        kind: EventKind,
+    ) -> Result<Vec<EventId>, MetadataError>;
 
     /// All distinct hosts that have contributed segments to a session —
     /// used by the Replay Engine (§6 step 1) to know which hosts'

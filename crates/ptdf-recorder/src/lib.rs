@@ -7,4 +7,6 @@
 
 pub mod session;
 
-pub use session::{RecorderError, RecordingSession, RecordingSessionConfig, RecordingSummary, StopHandle};
+pub use session::{
+    RecorderError, RecordingSession, RecordingSessionConfig, RecordingSummary, StopHandle,
+};

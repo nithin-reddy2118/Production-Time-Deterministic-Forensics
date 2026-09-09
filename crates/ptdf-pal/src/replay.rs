@@ -89,7 +89,9 @@ pub(crate) mod test_support {
     impl ReplayDriver for MockReplayDriver {
         fn prepare_environment(&mut self, binary_path: &str) -> Result<(), ReplayError> {
             if binary_path.is_empty() {
-                return Err(ReplayError::EnvironmentSetupFailed("empty binary path".into()));
+                return Err(ReplayError::EnvironmentSetupFailed(
+                    "empty binary path".into(),
+                ));
             }
             self.prepared = true;
             Ok(())
@@ -195,12 +197,18 @@ mod tests {
             StepOutcome::Diverged(div) => assert_eq!(div.expected, e1.id()),
             other => panic!("expected Diverged, got {other:?}"),
         }
-        assert!(d.steps_served.is_empty(), "a diverged event must not count as served");
+        assert!(
+            d.steps_served.is_empty(),
+            "a diverged event must not count as served"
+        );
     }
 
     #[test]
     fn target_completion_is_reported_and_stops_serving() {
-        let mut d = MockReplayDriver { exit_after_n_steps: Some(1), ..Default::default() };
+        let mut d = MockReplayDriver {
+            exit_after_n_steps: Some(1),
+            ..Default::default()
+        };
         d.prepare_environment("/bin/x").unwrap();
         d.launch().unwrap();
         let e1 = sample_event(1);

@@ -117,11 +117,23 @@ impl RecordingSession {
         config: RecordingSessionConfig,
     ) -> Self {
         let sink = BoundedSink::new(config.sink_capacity);
-        Self { interceptor, sink, metadata, metrics, config, session_id, host_id, segment_index: 0 }
+        Self {
+            interceptor,
+            sink,
+            metadata,
+            metrics,
+            config,
+            session_id,
+            host_id,
+            segment_index: 0,
+        }
     }
 
     fn next_segment_path(&mut self) -> PathBuf {
-        let path = self.config.segment_dir.join(format!("segment-{:08}.ptds", self.segment_index));
+        let path = self
+            .config
+            .segment_dir
+            .join(format!("segment-{:08}.ptds", self.segment_index));
         self.segment_index += 1;
         path
     }
@@ -140,7 +152,12 @@ impl RecordingSession {
     /// segment is discarded rather than registered, since it carries no
     /// information and would otherwise leave a zero-event segment file
     /// behind on every run) and register it with the metadata store.
-    fn seal_and_register(&self, writer: SegmentWriter, min_hlc_ns: u64, max_hlc_ns: u64) -> Result<Option<SegmentRecord>, RecorderError> {
+    fn seal_and_register(
+        &self,
+        writer: SegmentWriter,
+        min_hlc_ns: u64,
+        max_hlc_ns: u64,
+    ) -> Result<Option<SegmentRecord>, RecorderError> {
         if writer.event_count() == 0 {
             return Ok(None);
         }
@@ -164,7 +181,12 @@ impl RecordingSession {
     /// Any other interceptor error propagates immediately — a forensic
     /// recorder must not silently swallow an error that could mean it
     /// stopped capturing without the caller knowing.
-    pub fn run(&mut self, target: AttachTarget, stop: &StopHandle, poll_wait_ms: u32) -> Result<RecordingSummary, RecorderError> {
+    pub fn run(
+        &mut self,
+        target: AttachTarget,
+        stop: &StopHandle,
+        poll_wait_ms: u32,
+    ) -> Result<RecordingSummary, RecorderError> {
         self.interceptor.attach(target)?;
 
         let mut writer = self.open_segment()?;
@@ -204,7 +226,9 @@ impl RecordingSession {
 
                 let shed_now = self.sink.shed_count();
                 if shed_now > total_shed_before {
-                    self.metrics.events_shed_total.inc_by(shed_now - total_shed_before);
+                    self.metrics
+                        .events_shed_total
+                        .inc_by(shed_now - total_shed_before);
                     total_shed_before = shed_now;
                 }
                 self.metrics.sink_queue_depth.set(self.sink.len() as i64);
@@ -291,7 +315,14 @@ mod tests {
 
     fn make_event(seq: u64) -> Event {
         let id = EventId::new(HostId::from_raw(1), 1, 1, seq);
-        Event::new(id, SessionId::from_raw(1), EventKind::Syscall, HlcTimestamp::new(seq, 0), Payload::None, EventResult::Ok(0))
+        Event::new(
+            id,
+            SessionId::from_raw(1),
+            EventKind::Syscall,
+            HlcTimestamp::new(seq, 0),
+            Payload::None,
+            EventResult::Ok(0),
+        )
     }
 
     #[test]
@@ -306,18 +337,39 @@ mod tests {
         });
         let metadata = Arc::new(InMemoryMetadataStore::new());
         let metrics = Arc::new(StandardMetrics::register(&Registry::new()).unwrap());
-        let config = RecordingSessionConfig { segment_dir: dir.path().to_path_buf(), ..Default::default() };
+        let config = RecordingSessionConfig {
+            segment_dir: dir.path().to_path_buf(),
+            ..Default::default()
+        };
 
-        let mut session = RecordingSession::new(interceptor, metadata.clone(), metrics.clone(), SessionId::from_raw(1), HostId::from_raw(1), config);
+        let mut session = RecordingSession::new(
+            interceptor,
+            metadata.clone(),
+            metrics.clone(),
+            SessionId::from_raw(1),
+            HostId::from_raw(1),
+            config,
+        );
         let stop = StopHandle::new();
-        let summary = session.run(AttachTarget { pid: 1, follow_children: false }, &stop, 10).unwrap();
+        let summary = session
+            .run(
+                AttachTarget {
+                    pid: 1,
+                    follow_children: false,
+                },
+                &stop,
+                10,
+            )
+            .unwrap();
 
         assert_eq!(summary.events_recorded, 3);
         assert_eq!(summary.events_shed, 0);
         assert_eq!(metrics.events_recorded_total.get(), 3);
         assert_eq!(metrics.segments_sealed_total.get(), 1);
 
-        let segments = metadata.segments_for_session(SessionId::from_raw(1)).unwrap();
+        let segments = metadata
+            .segments_for_session(SessionId::from_raw(1))
+            .unwrap();
         assert_eq!(segments.len(), 1);
         assert_eq!(segments[0].event_count, 3);
     }
@@ -339,12 +391,30 @@ mod tests {
             ..Default::default()
         };
 
-        let mut session = RecordingSession::new(interceptor, metadata.clone(), metrics, SessionId::from_raw(1), HostId::from_raw(1), config);
+        let mut session = RecordingSession::new(
+            interceptor,
+            metadata.clone(),
+            metrics,
+            SessionId::from_raw(1),
+            HostId::from_raw(1),
+            config,
+        );
         let stop = StopHandle::new();
-        let summary = session.run(AttachTarget { pid: 1, follow_children: false }, &stop, 10).unwrap();
+        let summary = session
+            .run(
+                AttachTarget {
+                    pid: 1,
+                    follow_children: false,
+                },
+                &stop,
+                10,
+            )
+            .unwrap();
 
         assert_eq!(summary.events_recorded, 5);
-        let segments = metadata.segments_for_session(SessionId::from_raw(1)).unwrap();
+        let segments = metadata
+            .segments_for_session(SessionId::from_raw(1))
+            .unwrap();
         // 5 events at 2-per-segment: segments of 2, 2, 1.
         assert_eq!(segments.len(), 3);
         assert_eq!(segments.iter().map(|s| s.event_count).sum::<u64>(), 5);
@@ -353,21 +423,45 @@ mod tests {
     #[test]
     fn empty_recording_registers_no_segments() {
         let dir = tempfile::tempdir().unwrap();
-        let interceptor = Box::new(FakeInterceptor { batches: Mutex::new(VecDeque::new()), attached: Mutex::new(false) });
+        let interceptor = Box::new(FakeInterceptor {
+            batches: Mutex::new(VecDeque::new()),
+            attached: Mutex::new(false),
+        });
         let metadata = Arc::new(InMemoryMetadataStore::new());
         let metrics = Arc::new(StandardMetrics::register(&Registry::new()).unwrap());
-        let config = RecordingSessionConfig { segment_dir: dir.path().to_path_buf(), ..Default::default() };
+        let config = RecordingSessionConfig {
+            segment_dir: dir.path().to_path_buf(),
+            ..Default::default()
+        };
 
-        let mut session = RecordingSession::new(interceptor, metadata.clone(), metrics, SessionId::from_raw(1), HostId::from_raw(1), config);
+        let mut session = RecordingSession::new(
+            interceptor,
+            metadata.clone(),
+            metrics,
+            SessionId::from_raw(1),
+            HostId::from_raw(1),
+            config,
+        );
         let stop = StopHandle::new();
-        let summary = session.run(AttachTarget { pid: 1, follow_children: false }, &stop, 10).unwrap();
+        let summary = session
+            .run(
+                AttachTarget {
+                    pid: 1,
+                    follow_children: false,
+                },
+                &stop,
+                10,
+            )
+            .unwrap();
 
         assert_eq!(summary.events_recorded, 0);
         // No segment ever had an event, so nothing should be registered —
         // registering an empty segment would fail anyway since the
         // session is never explicitly created in the metadata store
         // otherwise, and this asserts that path is correctly skipped.
-        assert!(metadata.segments_for_session(SessionId::from_raw(1)).is_err());
+        assert!(metadata
+            .segments_for_session(SessionId::from_raw(1))
+            .is_err());
     }
 
     #[test]
@@ -400,12 +494,25 @@ mod tests {
         }
 
         let dir = tempfile::tempdir().unwrap();
-        let interceptor = Box::new(InfiniteInterceptor { attached: Mutex::new(false), seq: Mutex::new(0) });
+        let interceptor = Box::new(InfiniteInterceptor {
+            attached: Mutex::new(false),
+            seq: Mutex::new(0),
+        });
         let metadata = Arc::new(InMemoryMetadataStore::new());
         let metrics = Arc::new(StandardMetrics::register(&Registry::new()).unwrap());
-        let config = RecordingSessionConfig { segment_dir: dir.path().to_path_buf(), ..Default::default() };
+        let config = RecordingSessionConfig {
+            segment_dir: dir.path().to_path_buf(),
+            ..Default::default()
+        };
 
-        let mut session = RecordingSession::new(interceptor, metadata, metrics, SessionId::from_raw(1), HostId::from_raw(1), config);
+        let mut session = RecordingSession::new(
+            interceptor,
+            metadata,
+            metrics,
+            SessionId::from_raw(1),
+            HostId::from_raw(1),
+            config,
+        );
         let stop = StopHandle::new();
         let stop_clone = stop.clone();
 
@@ -417,9 +524,21 @@ mod tests {
             stop_clone.request_stop();
         });
 
-        let summary = session.run(AttachTarget { pid: 1, follow_children: false }, &stop, 1).unwrap();
+        let summary = session
+            .run(
+                AttachTarget {
+                    pid: 1,
+                    follow_children: false,
+                },
+                &stop,
+                1,
+            )
+            .unwrap();
         handle.join().unwrap();
 
-        assert!(summary.events_recorded > 0, "the loop should have recorded at least some events before stopping");
+        assert!(
+            summary.events_recorded > 0,
+            "the loop should have recorded at least some events before stopping"
+        );
     }
 }

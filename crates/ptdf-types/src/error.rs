@@ -9,7 +9,9 @@ use thiserror::Error;
 
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum PtdfTypesError {
-    #[error("invalid HLC ordering: attempted to construct a timestamp that would violate monotonicity")]
+    #[error(
+        "invalid HLC ordering: attempted to construct a timestamp that would violate monotonicity"
+    )]
     InvalidHlcOrdering,
 
     #[error("empty content hash is not permitted")]

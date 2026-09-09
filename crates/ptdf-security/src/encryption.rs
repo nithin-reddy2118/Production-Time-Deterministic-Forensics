@@ -75,7 +75,9 @@ impl DataEncryptionKey {
 pub fn encrypt(key: &DataEncryptionKey, plaintext: &[u8]) -> Result<Vec<u8>, EncryptionError> {
     let cipher = Aes256Gcm::new(&key.0);
     let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
-    let ciphertext = cipher.encrypt(&nonce, plaintext).map_err(|_| EncryptionError::EncryptFailed)?;
+    let ciphertext = cipher
+        .encrypt(&nonce, plaintext)
+        .map_err(|_| EncryptionError::EncryptFailed)?;
 
     let mut out = Vec::with_capacity(NONCE_LEN + ciphertext.len());
     out.extend_from_slice(nonce.as_slice());
@@ -91,7 +93,9 @@ pub fn decrypt(key: &DataEncryptionKey, data: &[u8]) -> Result<Vec<u8>, Encrypti
     let (nonce_bytes, ciphertext) = data.split_at(NONCE_LEN);
     let nonce = Nonce::from_slice(nonce_bytes);
     let cipher = Aes256Gcm::new(&key.0);
-    cipher.decrypt(nonce, ciphertext).map_err(|_| EncryptionError::DecryptFailed)
+    cipher
+        .decrypt(nonce, ciphertext)
+        .map_err(|_| EncryptionError::DecryptFailed)
 }
 
 #[cfg(test)]
@@ -101,7 +105,8 @@ mod tests {
     #[test]
     fn round_trip_encrypt_decrypt_recovers_the_plaintext() {
         let key = DataEncryptionKey::generate();
-        let plaintext = b"segment bytes go here, potentially containing sensitive syscall arguments";
+        let plaintext =
+            b"segment bytes go here, potentially containing sensitive syscall arguments";
         let ciphertext = encrypt(&key, plaintext).unwrap();
         let recovered = decrypt(&key, &ciphertext).unwrap();
         assert_eq!(recovered, plaintext);
@@ -123,7 +128,10 @@ mod tests {
         let key1 = DataEncryptionKey::generate();
         let key2 = DataEncryptionKey::generate();
         let ciphertext = encrypt(&key1, b"secret").unwrap();
-        assert_eq!(decrypt(&key2, &ciphertext), Err(EncryptionError::DecryptFailed));
+        assert_eq!(
+            decrypt(&key2, &ciphertext),
+            Err(EncryptionError::DecryptFailed)
+        );
     }
 
     #[test]
@@ -132,12 +140,19 @@ mod tests {
         let mut ciphertext = encrypt(&key, b"authenticated data").unwrap();
         let last = ciphertext.len() - 1;
         ciphertext[last] ^= 0xFF;
-        assert_eq!(decrypt(&key, &ciphertext), Err(EncryptionError::DecryptFailed), "GCM must detect tampering, not silently return corrupted plaintext");
+        assert_eq!(
+            decrypt(&key, &ciphertext),
+            Err(EncryptionError::DecryptFailed),
+            "GCM must detect tampering, not silently return corrupted plaintext"
+        );
     }
 
     #[test]
     fn truncated_ciphertext_is_rejected_before_attempting_decryption() {
-        assert_eq!(decrypt(&DataEncryptionKey::generate(), &[0u8; 5]), Err(EncryptionError::TooShort(5)));
+        assert_eq!(
+            decrypt(&DataEncryptionKey::generate(), &[0u8; 5]),
+            Err(EncryptionError::TooShort(5))
+        );
     }
 
     #[test]
@@ -155,7 +170,11 @@ mod tests {
     fn debug_output_never_reveals_key_material() {
         let key1 = DataEncryptionKey::generate();
         let key2 = DataEncryptionKey::generate();
-        assert_ne!(key1.as_bytes(), key2.as_bytes(), "precondition: the two keys must actually differ");
+        assert_ne!(
+            key1.as_bytes(),
+            key2.as_bytes(),
+            "precondition: the two keys must actually differ"
+        );
 
         // The real, non-tautological property: Debug output is identical
         // regardless of the underlying key bytes — i.e. it structurally

@@ -18,7 +18,10 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum AuditError {
     #[error("failed to open audit log at {path}: {source}")]
-    Open { path: String, source: std::io::Error },
+    Open {
+        path: String,
+        source: std::io::Error,
+    },
 
     #[error("audit I/O error: {0}")]
     Io(#[from] std::io::Error),
@@ -62,7 +65,10 @@ pub struct AuditRecord {
 }
 
 fn now_ns() -> u64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).expect("system clock before unix epoch").as_nanos() as u64
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("system clock before unix epoch")
+        .as_nanos() as u64
 }
 
 pub struct AuditLogger {
@@ -83,8 +89,13 @@ impl AuditLogger {
             .create(true)
             .append(true)
             .open(path_ref)
-            .map_err(|source| AuditError::Open { path: path_ref.display().to_string(), source })?;
-        Ok(Self { file: Mutex::new(file) })
+            .map_err(|source| AuditError::Open {
+                path: path_ref.display().to_string(),
+                source,
+            })?;
+        Ok(Self {
+            file: Mutex::new(file),
+        })
     }
 
     /// Record one audit event: fsync'd before this call returns, so a
@@ -145,8 +156,26 @@ mod tests {
         let path = dir.path().join("audit.log");
         let logger = AuditLogger::open(&path).unwrap();
 
-        logger.record("svc-a", Role::Operator, Permission::StartReplay, "replay_session", "session:123", AuditOutcome::Allowed).unwrap();
-        logger.record("svc-b", Role::Viewer, Permission::StartReplay, "replay_session", "session:456", AuditOutcome::Denied).unwrap();
+        logger
+            .record(
+                "svc-a",
+                Role::Operator,
+                Permission::StartReplay,
+                "replay_session",
+                "session:123",
+                AuditOutcome::Allowed,
+            )
+            .unwrap();
+        logger
+            .record(
+                "svc-b",
+                Role::Viewer,
+                Permission::StartReplay,
+                "replay_session",
+                "session:456",
+                AuditOutcome::Denied,
+            )
+            .unwrap();
 
         let records = AuditLogger::read_all(&path).unwrap();
         assert_eq!(records.len(), 2);
@@ -163,15 +192,37 @@ mod tests {
 
         {
             let logger = AuditLogger::open(&path).unwrap();
-            logger.record("a", Role::Admin, Permission::ManagePrincipals, "create_principal", "principal:x", AuditOutcome::Allowed).unwrap();
+            logger
+                .record(
+                    "a",
+                    Role::Admin,
+                    Permission::ManagePrincipals,
+                    "create_principal",
+                    "principal:x",
+                    AuditOutcome::Allowed,
+                )
+                .unwrap();
         }
         {
             let logger = AuditLogger::open(&path).unwrap();
-            logger.record("a", Role::Admin, Permission::ManagePrincipals, "delete_principal", "principal:x", AuditOutcome::Allowed).unwrap();
+            logger
+                .record(
+                    "a",
+                    Role::Admin,
+                    Permission::ManagePrincipals,
+                    "delete_principal",
+                    "principal:x",
+                    AuditOutcome::Allowed,
+                )
+                .unwrap();
         }
 
         let records = AuditLogger::read_all(&path).unwrap();
-        assert_eq!(records.len(), 2, "reopening the log must append, never truncate");
+        assert_eq!(
+            records.len(),
+            2,
+            "reopening the log must append, never truncate"
+        );
         assert_eq!(records[0].action, "create_principal");
         assert_eq!(records[1].action, "delete_principal");
     }
@@ -181,8 +232,26 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("audit.log");
         let logger = AuditLogger::open(&path).unwrap();
-        logger.record("a", Role::Viewer, Permission::ViewMetrics, "view", "metrics", AuditOutcome::Allowed).unwrap();
-        logger.record("a", Role::Viewer, Permission::ViewMetrics, "view", "metrics", AuditOutcome::Allowed).unwrap();
+        logger
+            .record(
+                "a",
+                Role::Viewer,
+                Permission::ViewMetrics,
+                "view",
+                "metrics",
+                AuditOutcome::Allowed,
+            )
+            .unwrap();
+        logger
+            .record(
+                "a",
+                Role::Viewer,
+                Permission::ViewMetrics,
+                "view",
+                "metrics",
+                AuditOutcome::Allowed,
+            )
+            .unwrap();
 
         let records = AuditLogger::read_all(&path).unwrap();
         assert!(records[0].timestamp_ns > 0);
@@ -217,7 +286,10 @@ mod tests {
 
         let records = AuditLogger::read_all(&path).unwrap();
         assert_eq!(records.len(), 1);
-        assert_eq!(records[0].schema_version, 1, "missing field must default to version 1, the pre-versioning format");
+        assert_eq!(
+            records[0].schema_version, 1,
+            "missing field must default to version 1, the pre-versioning format"
+        );
         assert_eq!(records[0].principal_id, "a");
     }
 
@@ -226,7 +298,16 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("audit.log");
         let logger = AuditLogger::open(&path).unwrap();
-        logger.record("a", Role::Viewer, Permission::ViewMetrics, "view", "metrics", AuditOutcome::Allowed).unwrap();
+        logger
+            .record(
+                "a",
+                Role::Viewer,
+                Permission::ViewMetrics,
+                "view",
+                "metrics",
+                AuditOutcome::Allowed,
+            )
+            .unwrap();
 
         let records = AuditLogger::read_all(&path).unwrap();
         assert_eq!(records[0].schema_version, AUDIT_SCHEMA_VERSION);

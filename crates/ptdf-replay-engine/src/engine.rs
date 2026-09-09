@@ -97,7 +97,13 @@ impl ReplayEngine {
         binary_path: &str,
         driver: &mut dyn ReplayDriver,
     ) -> Result<ReplayOutcome, ReplayEngineError> {
-        Self::run_with_options(metadata, session_id, binary_path, driver, ReplayRunOptions::default())
+        Self::run_with_options(
+            metadata,
+            session_id,
+            binary_path,
+            driver,
+            ReplayRunOptions::default(),
+        )
     }
 
     /// Run a replay with full control over resume position and
@@ -124,8 +130,12 @@ impl ReplayEngine {
         driver.prepare_environment(binary_path)?;
         driver.launch()?;
 
-        let mut outcome =
-            ReplayOutcome { events_served: 0, divergences: Vec::new(), target_exit_code: None, checkpoints: Vec::new() };
+        let mut outcome = ReplayOutcome {
+            events_served: 0,
+            divergences: Vec::new(),
+            target_exit_code: None,
+            checkpoints: Vec::new(),
+        };
 
         for (offset, event) in events[start_index..].iter().enumerate() {
             let absolute_index = start_index + offset;
@@ -136,7 +146,9 @@ impl ReplayEngine {
 
                     if let Some(interval) = options.checkpoint_every {
                         if interval > 0 && outcome.events_served as usize % interval == 0 {
-                            if let Some(checkpoint) = ReplayCheckpoint::take(&events, absolute_index + 1) {
+                            if let Some(checkpoint) =
+                                ReplayCheckpoint::take(&events, absolute_index + 1)
+                            {
                                 outcome.checkpoints.push(checkpoint);
                             }
                         }
@@ -192,7 +204,9 @@ mod tests {
         impl ReplayDriver for MockReplayDriver {
             fn prepare_environment(&mut self, binary_path: &str) -> Result<(), ReplayError> {
                 if binary_path.is_empty() {
-                    return Err(ReplayError::EnvironmentSetupFailed("empty binary path".into()));
+                    return Err(ReplayError::EnvironmentSetupFailed(
+                        "empty binary path".into(),
+                    ));
                 }
                 self.prepared = true;
                 Ok(())
@@ -219,12 +233,25 @@ mod tests {
     use local_mock::MockReplayDriver;
     use ptdf_types::{EventId, EventKind, EventResult, HlcTimestamp, Payload};
 
-    fn write_segment(dir: &std::path::Path, name: &str, session: SessionId, host: HostId, seqs: &[u64]) -> SegmentRecord {
+    fn write_segment(
+        dir: &std::path::Path,
+        name: &str,
+        session: SessionId,
+        host: HostId,
+        seqs: &[u64],
+    ) -> SegmentRecord {
         let path = dir.join(name);
         let mut writer = SegmentWriter::create(&path).unwrap();
         for &seq in seqs {
             let id = EventId::new(host, 1, 1, seq);
-            let ev = Event::new(id, session, EventKind::Syscall, HlcTimestamp::new(seq, 0), Payload::None, EventResult::Ok(0));
+            let ev = Event::new(
+                id,
+                session,
+                EventKind::Syscall,
+                HlcTimestamp::new(seq, 0),
+                Payload::None,
+                EventResult::Ok(0),
+            );
             writer.append(&ev).unwrap();
         }
         let info = writer.seal().unwrap();
@@ -287,7 +314,10 @@ mod tests {
         store.register_segment(seg).unwrap();
 
         let diverging_id = EventId::new(host, 1, 1, 1);
-        let mut driver = MockReplayDriver { force_divergence_on: Some(diverging_id), ..Default::default() };
+        let mut driver = MockReplayDriver {
+            force_divergence_on: Some(diverging_id),
+            ..Default::default()
+        };
         let outcome = ReplayEngine::run(&store, session, "/bin/target", &mut driver).unwrap();
 
         assert_eq!(outcome.divergences.len(), 1);
@@ -334,8 +364,13 @@ mod tests {
         store.register_segment(seg).unwrap();
 
         let mut driver = MockReplayDriver::default();
-        let options = ReplayRunOptions { resume_from: None, checkpoint_every: Some(2) };
-        let outcome = ReplayEngine::run_with_options(&store, session, "/bin/target", &mut driver, options).unwrap();
+        let options = ReplayRunOptions {
+            resume_from: None,
+            checkpoint_every: Some(2),
+        };
+        let outcome =
+            ReplayEngine::run_with_options(&store, session, "/bin/target", &mut driver, options)
+                .unwrap();
 
         assert_eq!(outcome.events_served, 5);
         // 5 events, checkpoint every 2 served -> checkpoints after event 2 and event 4.
@@ -361,10 +396,18 @@ mod tests {
         let checkpoint = ReplayCheckpoint::take(&events, 3).unwrap();
 
         let mut driver = MockReplayDriver::default();
-        let options = ReplayRunOptions { resume_from: Some(checkpoint), checkpoint_every: None };
-        let outcome = ReplayEngine::run_with_options(&store, session, "/bin/target", &mut driver, options).unwrap();
+        let options = ReplayRunOptions {
+            resume_from: Some(checkpoint),
+            checkpoint_every: None,
+        };
+        let outcome =
+            ReplayEngine::run_with_options(&store, session, "/bin/target", &mut driver, options)
+                .unwrap();
 
-        assert_eq!(outcome.events_served, 2, "only events at index 3 and 4 should be replayed");
+        assert_eq!(
+            outcome.events_served, 2,
+            "only events at index 3 and 4 should be replayed"
+        );
         assert_eq!(driver.steps_served.len(), 2);
     }
 
@@ -379,18 +422,28 @@ mod tests {
 
         let events = ReplayEngine::load_linearized_events(&store, session).unwrap();
         let checkpoint = ReplayCheckpoint::take(&events, 5);
-        assert!(checkpoint.is_none(), "index 5 is out of range for a 3-event stream, so no checkpoint can be taken there");
+        assert!(
+            checkpoint.is_none(),
+            "index 5 is out of range for a 3-event stream, so no checkpoint can be taken there"
+        );
 
         // Construct an artificially stale checkpoint (valid index, wrong id)
         // to exercise the resume-time rejection path.
-        let stale = ReplayCheckpoint::take(&events, 1).map(|mut c| {
-            c.next_event_id = EventId::new(HostId::from_raw(1), 99, 99, 999);
-            c
-        }).unwrap();
+        let stale = ReplayCheckpoint::take(&events, 1)
+            .map(|mut c| {
+                c.next_event_id = EventId::new(HostId::from_raw(1), 99, 99, 999);
+                c
+            })
+            .unwrap();
 
         let mut driver = MockReplayDriver::default();
-        let options = ReplayRunOptions { resume_from: Some(stale), checkpoint_every: None };
-        let err = ReplayEngine::run_with_options(&store, session, "/bin/target", &mut driver, options).unwrap_err();
+        let options = ReplayRunOptions {
+            resume_from: Some(stale),
+            checkpoint_every: None,
+        };
+        let err =
+            ReplayEngine::run_with_options(&store, session, "/bin/target", &mut driver, options)
+                .unwrap_err();
         assert!(matches!(err, ReplayEngineError::Checkpoint(_)));
     }
 }

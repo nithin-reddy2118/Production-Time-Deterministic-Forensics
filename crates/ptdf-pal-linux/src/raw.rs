@@ -20,7 +20,6 @@ use std::io;
 #[cfg(not(all(target_os = "linux", target_arch = "x86_64")))]
 compile_error!("ptdf-pal-linux currently supports only Linux on x86_64");
 
-const PTRACE_TRACEME: i32 = 0;
 const PTRACE_PEEKTEXT: i32 = 1;
 const PTRACE_GETREGS: i32 = 12;
 const PTRACE_SETOPTIONS: i32 = 0x4200;
@@ -78,9 +77,16 @@ pub enum WaitStatus {
     /// ordinary signal-delivery stops, which matter for a correct forensic
     /// recording — a signal delivered to the tracee is itself a `Signal`
     /// event, not a syscall boundary).
-    Stopped { signal: i32, is_syscall_stop: bool },
-    Exited { exit_code: i32 },
-    Signaled { signal: i32 },
+    Stopped {
+        signal: i32,
+        is_syscall_stop: bool,
+    },
+    Exited {
+        exit_code: i32,
+    },
+    Signaled {
+        signal: i32,
+    },
 }
 
 /// `ptrace(PTRACE_SEIZE, pid, 0, options)` — attach without stopping the
@@ -93,7 +99,12 @@ pub enum WaitStatus {
 /// UID, or `CAP_SYS_PTRACE`), and must not already be traced by this or
 /// another tracer.
 pub unsafe fn seize(pid: i32, options: i64) -> io::Result<()> {
-    let ret = libc::ptrace(PTRACE_SEIZE as libc::c_uint, pid, std::ptr::null_mut::<libc::c_void>(), options);
+    let ret = libc::ptrace(
+        PTRACE_SEIZE as libc::c_uint,
+        pid,
+        std::ptr::null_mut::<libc::c_void>(),
+        options,
+    );
     if ret == -1 {
         return Err(io::Error::last_os_error());
     }
@@ -119,7 +130,12 @@ pub unsafe fn interrupt(pid: i32) -> io::Result<()> {
 /// # Safety
 /// Same preconditions as `interrupt`.
 pub unsafe fn set_options(pid: i32, options: i64) -> io::Result<()> {
-    let ret = libc::ptrace(PTRACE_SETOPTIONS as libc::c_uint, pid, std::ptr::null_mut::<libc::c_void>(), options);
+    let ret = libc::ptrace(
+        PTRACE_SETOPTIONS as libc::c_uint,
+        pid,
+        std::ptr::null_mut::<libc::c_void>(),
+        options,
+    );
     if ret == -1 {
         return Err(io::Error::last_os_error());
     }
@@ -132,7 +148,7 @@ pub unsafe fn set_options(pid: i32, options: i64) -> io::Result<()> {
 /// Same preconditions as `interrupt`.
 pub unsafe fn resume_to_next_syscall_stop(pid: i32) -> io::Result<()> {
     let ret = libc::ptrace(
-        PTRACE_SYSCALL,
+        PTRACE_SYSCALL as libc::c_uint,
         pid,
         std::ptr::null_mut::<libc::c_void>(),
         std::ptr::null_mut::<libc::c_void>(),
@@ -171,13 +187,20 @@ pub unsafe fn resume_to_next_syscall_stop_with_signal(pid: i32, signal: i32) -> 
 /// reported `WaitStatus::Stopped`).
 pub unsafe fn get_regs(pid: i32) -> io::Result<UserRegsX86_64> {
     let mut regs = UserRegsX86_64::default();
-    let ret = libc::ptrace(PTRACE_PEEKTEXT as libc::c_uint, pid, addr as *mut libc::c_void, std::ptr::null_mut::<libc::c_void>());
+
+    let ret = libc::ptrace(
+        PTRACE_GETREGS as libc::c_uint,
+        pid,
+        std::ptr::null_mut::<libc::c_void>(),
+        &mut regs as *mut _ as *mut libc::c_void,
+    );
+
     if ret == -1 {
         return Err(io::Error::last_os_error());
     }
+
     Ok(regs)
 }
-
 /// Read one word (8 bytes on x86_64) from the tracee's address space at
 /// `addr`, via `PTRACE_PEEKTEXT`. Used for resolving pointer arguments
 /// (e.g. the buffer address in a `write(2)` call) when a future module
@@ -192,7 +215,12 @@ pub unsafe fn peek_text(pid: i32, addr: u64) -> io::Result<u64> {
     // means -1 is ambiguous with an error unless we clear errno first and
     // check it after — the standard pattern for this specific request.
     *libc::__errno_location() = 0;
-    let ret = libc::ptrace(PTRACE_SEIZE as libc::c_uint,, pid, addr as *mut libc::c_void, std::ptr::null_mut::<libc::c_void>());
+    let ret = libc::ptrace(
+        PTRACE_PEEKTEXT as libc::c_uint,
+        pid,
+        addr as *mut libc::c_void,
+        std::ptr::null_mut::<libc::c_void>(),
+    );
     if ret == -1 {
         let err = io::Error::last_os_error();
         if err.raw_os_error() != Some(0) {
@@ -228,17 +256,26 @@ pub unsafe fn wait_for_stop(pid: i32) -> io::Result<WaitStatus> {
         return Err(io::Error::last_os_error());
     }
     if libc::WIFEXITED(status) {
-        return Ok(WaitStatus::Exited { exit_code: libc::WEXITSTATUS(status) });
+        return Ok(WaitStatus::Exited {
+            exit_code: libc::WEXITSTATUS(status),
+        });
     }
     if libc::WIFSIGNALED(status) {
-        return Ok(WaitStatus::Signaled { signal: libc::WTERMSIG(status) });
+        return Ok(WaitStatus::Signaled {
+            signal: libc::WTERMSIG(status),
+        });
     }
     if libc::WIFSTOPPED(status) {
         let sig = libc::WSTOPSIG(status);
         let is_syscall_stop = sig == (libc::SIGTRAP | 0x80);
-        return Ok(WaitStatus::Stopped { signal: sig, is_syscall_stop });
+        return Ok(WaitStatus::Stopped {
+            signal: sig,
+            is_syscall_stop,
+        });
     }
-    Err(io::Error::new(io::ErrorKind::Other, format!("unrecognized waitpid status: {status:#x}")))
+    Err(io::Error::other(format!(
+        "unrecognized waitpid status: {status:#x}"
+    )))
 }
 
 #[cfg(test)]

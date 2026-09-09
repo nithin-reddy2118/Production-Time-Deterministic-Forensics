@@ -23,7 +23,11 @@ pub enum CheckpointError {
     IndexOutOfRange { index: usize, stream_len: usize },
 
     #[error("checkpoint is stale: expected event {expected} at index {index}, but the current linearization has {found} there — the underlying segments changed since this checkpoint was taken")]
-    Stale { index: usize, expected: EventId, found: EventId },
+    Stale {
+        index: usize,
+        expected: EventId,
+        found: EventId,
+    },
 }
 
 /// A resumable position within one session's linearized replay stream.
@@ -43,19 +47,30 @@ impl ReplayCheckpoint {
     /// Returns `None` if `event_index >= linearized_events.len()` (there's
     /// nothing left to resume from — the replay is already complete).
     pub fn take(linearized_events: &[Event], event_index: usize) -> Option<Self> {
-        linearized_events.get(event_index).map(|e| Self { event_index, next_event_id: e.id() })
+        linearized_events.get(event_index).map(|e| Self {
+            event_index,
+            next_event_id: e.id(),
+        })
     }
 
     /// Confirm this checkpoint is still valid against a freshly-loaded
     /// linearization of the same session, per the module-level staleness
     /// rationale.
     pub fn validate(&self, linearized_events: &[Event]) -> Result<(), CheckpointError> {
-        let found = linearized_events
-            .get(self.event_index)
-            .ok_or(CheckpointError::IndexOutOfRange { index: self.event_index, stream_len: linearized_events.len() })?;
+        let found =
+            linearized_events
+                .get(self.event_index)
+                .ok_or(CheckpointError::IndexOutOfRange {
+                    index: self.event_index,
+                    stream_len: linearized_events.len(),
+                })?;
 
         if found.id() != self.next_event_id {
-            return Err(CheckpointError::Stale { index: self.event_index, expected: self.next_event_id, found: found.id() });
+            return Err(CheckpointError::Stale {
+                index: self.event_index,
+                expected: self.next_event_id,
+                found: found.id(),
+            });
         }
         Ok(())
     }
@@ -68,7 +83,14 @@ mod tests {
 
     fn ev(seq: u64) -> Event {
         let id = EventId::new(HostId::from_raw(1), 1, 1, seq);
-        Event::new(id, SessionId::from_raw(1), EventKind::Syscall, HlcTimestamp::new(seq, 0), Payload::None, EventResult::Ok(0))
+        Event::new(
+            id,
+            SessionId::from_raw(1),
+            EventKind::Syscall,
+            HlcTimestamp::new(seq, 0),
+            Payload::None,
+            EventResult::Ok(0),
+        )
     }
 
     #[test]
@@ -91,7 +113,13 @@ mod tests {
         let events: Vec<Event> = (0..5).map(ev).collect();
         let checkpoint = ReplayCheckpoint::take(&events, 4).unwrap();
         let shrunk: Vec<Event> = events[..2].to_vec();
-        assert_eq!(checkpoint.validate(&shrunk), Err(CheckpointError::IndexOutOfRange { index: 4, stream_len: 2 }));
+        assert_eq!(
+            checkpoint.validate(&shrunk),
+            Err(CheckpointError::IndexOutOfRange {
+                index: 4,
+                stream_len: 2
+            })
+        );
     }
 
     #[test]

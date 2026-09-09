@@ -69,30 +69,50 @@ mod tests {
         // -1 (EPERM) as an i64 reinterpreted as u64 is the well-known
         // 0xFFFFFFFFFFFFFFFF pattern; this is exactly the bit pattern the
         // kernel itself would have placed in rax for a failing syscall.
-        let rax = syscall_result_to_rax(&EventResult::Err { retval: -1, errno: 1 }).unwrap();
+        let rax = syscall_result_to_rax(&EventResult::Err {
+            retval: -1,
+            errno: 1,
+        })
+        .unwrap();
         assert_eq!(rax, u64::MAX);
 
         // -11 (EAGAIN) similarly.
-        let rax = syscall_result_to_rax(&EventResult::Err { retval: -11, errno: 11 }).unwrap();
+        let rax = syscall_result_to_rax(&EventResult::Err {
+            retval: -11,
+            errno: 11,
+        })
+        .unwrap();
         assert_eq!(rax as i64, -11);
     }
 
     #[test]
     fn errno_out_of_valid_range_is_rejected() {
         assert_eq!(
-            syscall_result_to_rax(&EventResult::Err { retval: -1, errno: 0 }),
+            syscall_result_to_rax(&EventResult::Err {
+                retval: -1,
+                errno: 0
+            }),
             Err(InjectorError::ErrnoOutOfRange(0))
         );
         assert_eq!(
-            syscall_result_to_rax(&EventResult::Err { retval: -1, errno: 5000 }),
+            syscall_result_to_rax(&EventResult::Err {
+                retval: -1,
+                errno: 5000
+            }),
             Err(InjectorError::ErrnoOutOfRange(5000))
         );
     }
 
     #[test]
     fn windows_style_variants_are_rejected_not_silently_coerced() {
-        assert!(matches!(syscall_result_to_rax(&EventResult::Status(-1)), Err(InjectorError::UnsupportedResultVariant("Status"))));
-        assert!(matches!(syscall_result_to_rax(&EventResult::None), Err(InjectorError::UnsupportedResultVariant("None"))));
+        assert!(matches!(
+            syscall_result_to_rax(&EventResult::Status(-1)),
+            Err(InjectorError::UnsupportedResultVariant("Status"))
+        ));
+        assert!(matches!(
+            syscall_result_to_rax(&EventResult::None),
+            Err(InjectorError::UnsupportedResultVariant("None"))
+        ));
     }
 
     #[test]

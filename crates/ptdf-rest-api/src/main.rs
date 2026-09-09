@@ -7,8 +7,10 @@ use std::sync::Arc;
 fn main() {
     let _ = ptdf_logging::init(ptdf_logging::LoggingConfig::production_default());
 
-    let bind_addr = std::env::var("PTDF_API_BIND_ADDR").unwrap_or_else(|_| "127.0.0.1:8080".to_string());
-    let audit_log_path = std::env::var("PTDF_AUDIT_LOG_PATH").unwrap_or_else(|_| "./ptdf-audit.log".to_string());
+    let bind_addr =
+        std::env::var("PTDF_API_BIND_ADDR").unwrap_or_else(|_| "127.0.0.1:8080".to_string());
+    let audit_log_path =
+        std::env::var("PTDF_AUDIT_LOG_PATH").unwrap_or_else(|_| "./ptdf-audit.log".to_string());
 
     let audit = match AuditLogger::open(&audit_log_path) {
         Ok(logger) => logger,
@@ -29,7 +31,13 @@ fn main() {
     // extension point (`ApiKeyAuthenticator::register_key` is already the
     // seam such a loader would call into).
     let bootstrap_key = generate_random_api_key();
-    if let Err(e) = authenticator.register_key(&bootstrap_key, Principal { id: "bootstrap-admin".to_string(), role: Role::Admin }) {
+    if let Err(e) = authenticator.register_key(
+        &bootstrap_key,
+        Principal {
+            id: "bootstrap-admin".to_string(),
+            role: Role::Admin,
+        },
+    ) {
         eprintln!("failed to register bootstrap admin key: {e}");
         std::process::exit(1);
     }

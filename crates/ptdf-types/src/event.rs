@@ -81,7 +81,14 @@ impl Event {
         payload: Payload,
         result: EventResult,
     ) -> Self {
-        Self { id, session_id, kind, hlc, payload, result }
+        Self {
+            id,
+            session_id,
+            kind,
+            hlc,
+            payload,
+            result,
+        }
     }
 
     pub fn id(&self) -> EventId {
@@ -126,7 +133,10 @@ impl Event {
     /// therefore must never be shed under backpressure (§8: "syscalls
     /// affecting external state never shed").
     pub fn is_load_bearing(&self) -> bool {
-        matches!(self.kind, EventKind::Syscall | EventKind::NetIo | EventKind::Signal)
+        matches!(
+            self.kind,
+            EventKind::Syscall | EventKind::NetIo | EventKind::Signal
+        )
     }
 }
 
@@ -157,12 +167,18 @@ mod tests {
         let small = sample_event(EventKind::Syscall, Payload::Inline(vec![0u8; 4]));
         let large = sample_event(EventKind::Syscall, Payload::Inline(vec![0u8; 4096]));
         assert!(large.approx_size_bytes() > small.approx_size_bytes());
-        assert_eq!(large.approx_size_bytes() - small.approx_size_bytes(), 4096 - 4);
+        assert_eq!(
+            large.approx_size_bytes() - small.approx_size_bytes(),
+            4096 - 4
+        );
     }
 
     #[test]
     fn blob_ref_payload_has_fixed_small_size() {
-        let ev = sample_event(EventKind::Syscall, Payload::BlobRef(ContentHash::from_bytes([0u8; 32])));
+        let ev = sample_event(
+            EventKind::Syscall,
+            Payload::BlobRef(ContentHash::from_bytes([0u8; 32])),
+        );
         let none_ev = sample_event(EventKind::ClockRead, Payload::None);
         assert_eq!(ev.approx_size_bytes() - none_ev.approx_size_bytes(), 32);
     }

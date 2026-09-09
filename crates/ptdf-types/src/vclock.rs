@@ -26,7 +26,10 @@ pub struct HlcTimestamp {
 
 impl HlcTimestamp {
     pub const fn new(physical_ns: u64, logical: u32) -> Self {
-        Self { physical_ns, logical }
+        Self {
+            physical_ns,
+            logical,
+        }
     }
 
     pub const fn physical_ns(&self) -> u64 {
@@ -84,7 +87,10 @@ pub struct HlcGenerator<C: PhysicalClock = SystemPhysicalClock> {
 
 impl<C: PhysicalClock> HlcGenerator<C> {
     pub fn new(clock: C) -> Self {
-        Self { clock, last: HlcTimestamp::new(0, 0) }
+        Self {
+            clock,
+            last: HlcTimestamp::new(0, 0),
+        }
     }
 
     /// Produce the next local HLC value. Monotonic even if the physical
@@ -107,9 +113,10 @@ impl<C: PhysicalClock> HlcGenerator<C> {
     /// protocol beyond piggybacking the value on data already in flight.
     pub fn receive(&mut self, remote: HlcTimestamp) -> HlcTimestamp {
         let physical_now = self.clock.now_ns();
-        let max_physical = physical_now.max(self.last.physical_ns).max(remote.physical_ns);
-        let next = if max_physical == self.last.physical_ns && max_physical == remote.physical_ns
-        {
+        let max_physical = physical_now
+            .max(self.last.physical_ns)
+            .max(remote.physical_ns);
+        let next = if max_physical == self.last.physical_ns && max_physical == remote.physical_ns {
             HlcTimestamp::new(max_physical, self.last.logical.max(remote.logical) + 1)
         } else if max_physical == self.last.physical_ns {
             HlcTimestamp::new(max_physical, self.last.logical + 1)
@@ -137,7 +144,10 @@ mod tests {
 
     impl FakeClock {
         fn new(values: Vec<u64>) -> Self {
-            Self { values, idx: Cell::new(0) }
+            Self {
+                values,
+                idx: Cell::new(0),
+            }
         }
     }
 
@@ -168,7 +178,10 @@ mod tests {
         let a = hlc.tick();
         let b = hlc.tick();
         let c = hlc.tick();
-        assert!(a < b && b < c, "HLC must stay monotonic under a stalled clock");
+        assert!(
+            a < b && b < c,
+            "HLC must stay monotonic under a stalled clock"
+        );
         assert_eq!(a.physical_ns(), 100);
         assert_eq!(b.physical_ns(), 100);
         assert_eq!(b.logical(), 1);
@@ -190,7 +203,10 @@ mod tests {
         let mut local = HlcGenerator::new(FakeClock::new(vec![100]));
         let remote = HlcTimestamp::new(1_000_000, 5);
         let observed = local.receive(remote);
-        assert!(observed > remote, "receiving must create a happens-after event");
+        assert!(
+            observed > remote,
+            "receiving must create a happens-after event"
+        );
         assert_eq!(observed.physical_ns(), 1_000_000);
         assert_eq!(observed.logical(), 6);
     }

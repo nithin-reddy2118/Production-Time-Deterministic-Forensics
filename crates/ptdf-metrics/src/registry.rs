@@ -29,8 +29,11 @@ pub enum MetricsError {
 
 fn validate_name(name: &str) -> Result<(), MetricsError> {
     let mut chars = name.chars();
-    let valid_first = matches!(chars.next(), Some(c) if c.is_ascii_alphabetic() || c == '_' || c == ':');
-    let valid_rest = chars.clone().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == ':');
+    let valid_first =
+        matches!(chars.next(), Some(c) if c.is_ascii_alphabetic() || c == '_' || c == ':');
+    let valid_rest = chars
+        .clone()
+        .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == ':');
     if !name.is_empty() && valid_first && valid_rest {
         Ok(())
     } else {
@@ -51,7 +54,9 @@ pub struct Registry {
 impl std::fmt::Debug for Registry {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let count = self.metrics.read().map(|m| m.len()).unwrap_or(0);
-        f.debug_struct("Registry").field("metric_count", &count).finish()
+        f.debug_struct("Registry")
+            .field("metric_count", &count)
+            .finish()
     }
 }
 
@@ -125,7 +130,9 @@ mod tests {
     #[test]
     fn register_and_render_a_counter() {
         let registry = Registry::new();
-        let c = registry.counter("ptdf_events_recorded_total", "Total events recorded").unwrap();
+        let c = registry
+            .counter("ptdf_events_recorded_total", "Total events recorded")
+            .unwrap();
         c.inc_by(42);
 
         let rendered = registry.render();
@@ -137,7 +144,9 @@ mod tests {
     #[test]
     fn register_and_render_a_gauge() {
         let registry = Registry::new();
-        let g = registry.gauge("ptdf_sink_queue_depth", "Current sink queue depth").unwrap();
+        let g = registry
+            .gauge("ptdf_sink_queue_depth", "Current sink queue depth")
+            .unwrap();
         g.set(17);
 
         let rendered = registry.render();
@@ -151,7 +160,11 @@ mod tests {
         let c1 = registry.counter("ptdf_x", "help").unwrap();
         let c2 = registry.counter("ptdf_x", "help").unwrap();
         c1.inc();
-        assert_eq!(c2.get(), 1, "both handles must refer to the same underlying counter");
+        assert_eq!(
+            c2.get(),
+            1,
+            "both handles must refer to the same underlying counter"
+        );
     }
 
     #[test]
@@ -180,7 +193,10 @@ mod tests {
         let rendered = registry.render();
         let aaa_pos = rendered.find("ptdf_aaa").unwrap();
         let zzz_pos = rendered.find("ptdf_zzz").unwrap();
-        assert!(aaa_pos < zzz_pos, "output must be sorted so it's diffable across scrapes");
+        assert!(
+            aaa_pos < zzz_pos,
+            "output must be sorted so it's diffable across scrapes"
+        );
     }
 
     #[test]

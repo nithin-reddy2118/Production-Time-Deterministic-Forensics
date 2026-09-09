@@ -130,7 +130,10 @@ mod tests {
     #[test]
     fn attach_then_detach_succeeds() {
         let mut i = MockInterceptor::default();
-        let target = AttachTarget { pid: 123, follow_children: true };
+        let target = AttachTarget {
+            pid: 123,
+            follow_children: true,
+        };
         assert!(i.attach(target).is_ok());
         assert_eq!(i.attached_to, Some(target));
         assert!(i.detach().is_ok());
@@ -140,7 +143,10 @@ mod tests {
     #[test]
     fn double_attach_is_rejected() {
         let mut i = MockInterceptor::default();
-        let target = AttachTarget { pid: 1, follow_children: false };
+        let target = AttachTarget {
+            pid: 1,
+            follow_children: false,
+        };
         i.attach(target).unwrap();
         let err = i.attach(target).unwrap_err();
         assert!(matches!(err, InterceptorError::Platform(_)));
@@ -160,11 +166,20 @@ mod tests {
 
     #[test]
     fn attach_failure_is_reported_and_leaves_state_clean() {
-        let mut i = MockInterceptor { fail_next_attach: true, ..Default::default() };
-        let target = AttachTarget { pid: 7, follow_children: false };
+        let mut i = MockInterceptor {
+            fail_next_attach: true,
+            ..Default::default()
+        };
+        let target = AttachTarget {
+            pid: 7,
+            follow_children: false,
+        };
         let err = i.attach(target).unwrap_err();
         assert!(matches!(err, InterceptorError::AttachFailed { pid: 7, .. }));
-        assert_eq!(i.attached_to, None, "failed attach must not leave partial state");
+        assert_eq!(
+            i.attached_to, None,
+            "failed attach must not leave partial state"
+        );
         // Retry should now succeed since fail_next_attach was consumed.
         assert!(i.attach(target).is_ok());
     }

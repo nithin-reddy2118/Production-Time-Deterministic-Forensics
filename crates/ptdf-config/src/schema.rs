@@ -21,7 +21,10 @@ pub enum ConfigError {
     InvalidValue { field: &'static str, reason: String },
 
     #[error("failed to read config file {path}: {source}")]
-    FileRead { path: String, source: std::io::Error },
+    FileRead {
+        path: String,
+        source: std::io::Error,
+    },
 
     #[error("failed to parse TOML config: {0}")]
     TomlParse(#[from] toml::de::Error),
@@ -35,7 +38,16 @@ impl PartialEq for ConfigError {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::MissingRequired(a), Self::MissingRequired(b)) => a == b,
-            (Self::InvalidValue { field: fa, reason: ra }, Self::InvalidValue { field: fb, reason: rb }) => fa == fb && ra == rb,
+            (
+                Self::InvalidValue {
+                    field: fa,
+                    reason: ra,
+                },
+                Self::InvalidValue {
+                    field: fb,
+                    reason: rb,
+                },
+            ) => fa == fb && ra == rb,
             (Self::FileRead { path: pa, .. }, Self::FileRead { path: pb, .. }) => pa == pb,
             (Self::TomlParse(_), Self::TomlParse(_)) => true,
             _ => false,
@@ -81,10 +93,11 @@ impl PartialRecorderConfig {
         let mut partial = PartialRecorderConfig::default();
 
         if let Some(v) = env.get("PTDF_SINK_CAPACITY") {
-            partial.sink_capacity = Some(v.parse::<usize>().map_err(|e| ConfigError::InvalidValue {
-                field: "PTDF_SINK_CAPACITY",
-                reason: e.to_string(),
-            })?);
+            partial.sink_capacity =
+                Some(v.parse::<usize>().map_err(|e| ConfigError::InvalidValue {
+                    field: "PTDF_SINK_CAPACITY",
+                    reason: e.to_string(),
+                })?);
         }
 
         if let Some(v) = env.get("PTDF_POLL_INTERVAL_MS") {
@@ -154,7 +167,10 @@ impl PartialRecorderConfig {
         match std::fs::read_to_string(path_ref) {
             Ok(contents) => Self::from_toml_str(&contents),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Self::default()),
-            Err(e) => Err(ConfigError::FileRead { path: path_ref.display().to_string(), source: e }),
+            Err(e) => Err(ConfigError::FileRead {
+                path: path_ref.display().to_string(),
+                source: e,
+            }),
         }
     }
 }
@@ -208,23 +224,42 @@ mod tests {
     use super::*;
 
     fn env(pairs: &[(&str, &str)]) -> HashMap<String, String> {
-        pairs.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect()
+        pairs
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect()
     }
 
     #[test]
     fn merge_lets_later_layer_win() {
-        let base = PartialRecorderConfig { sink_capacity: Some(1), ..Default::default() };
-        let over = PartialRecorderConfig { sink_capacity: Some(2), ..Default::default() };
+        let base = PartialRecorderConfig {
+            sink_capacity: Some(1),
+            ..Default::default()
+        };
+        let over = PartialRecorderConfig {
+            sink_capacity: Some(2),
+            ..Default::default()
+        };
         let merged = base.merge(over);
         assert_eq!(merged.sink_capacity, Some(2));
     }
 
     #[test]
     fn merge_does_not_let_none_overwrite_some() {
-        let base = PartialRecorderConfig { sink_capacity: Some(1), ..Default::default() };
-        let over = PartialRecorderConfig { sink_capacity: None, ..Default::default() };
+        let base = PartialRecorderConfig {
+            sink_capacity: Some(1),
+            ..Default::default()
+        };
+        let over = PartialRecorderConfig {
+            sink_capacity: None,
+            ..Default::default()
+        };
         let merged = base.merge(over);
-        assert_eq!(merged.sink_capacity, Some(1), "None in a higher layer must not erase a lower layer's value");
+        assert_eq!(
+            merged.sink_capacity,
+            Some(1),
+            "None in a higher layer must not erase a lower layer's value"
+        );
     }
 
     #[test]
@@ -241,7 +276,10 @@ mod tests {
             ..Default::default()
         };
         let cfg = RecorderConfig::finalize(partial).unwrap();
-        assert_eq!(cfg.sink_capacity, 65_536, "unset fields must fall back to defaults");
+        assert_eq!(
+            cfg.sink_capacity, 65_536,
+            "unset fields must fall back to defaults"
+        );
         assert_eq!(cfg.ingestion_endpoint, "https://ingest.example.invalid");
     }
 
@@ -256,7 +294,10 @@ mod tests {
         let partial = PartialRecorderConfig::from_env_map(&e).unwrap();
         assert_eq!(partial.sink_capacity, Some(128));
         assert_eq!(partial.poll_interval, Some(Duration::from_millis(50)));
-        assert_eq!(partial.ingestion_endpoint, Some("https://x.invalid".to_string()));
+        assert_eq!(
+            partial.ingestion_endpoint,
+            Some("https://x.invalid".to_string())
+        );
         assert_eq!(partial.follow_children, Some(false));
     }
 
@@ -264,31 +305,58 @@ mod tests {
     fn env_layer_rejects_unparseable_values_instead_of_ignoring() {
         let e = env(&[("PTDF_SINK_CAPACITY", "not-a-number")]);
         let err = PartialRecorderConfig::from_env_map(&e).unwrap_err();
-        assert!(matches!(err, ConfigError::InvalidValue { field: "PTDF_SINK_CAPACITY", .. }));
+        assert!(matches!(
+            err,
+            ConfigError::InvalidValue {
+                field: "PTDF_SINK_CAPACITY",
+                ..
+            }
+        ));
     }
 
     #[test]
     fn env_layer_rejects_invalid_bool_values() {
         let e = env(&[("PTDF_FOLLOW_CHILDREN", "maybe")]);
         let err = PartialRecorderConfig::from_env_map(&e).unwrap_err();
-        assert!(matches!(err, ConfigError::InvalidValue { field: "PTDF_FOLLOW_CHILDREN", .. }));
+        assert!(matches!(
+            err,
+            ConfigError::InvalidValue {
+                field: "PTDF_FOLLOW_CHILDREN",
+                ..
+            }
+        ));
     }
 
     #[test]
     fn full_precedence_chain_defaults_then_env_then_explicit_override() {
-        let e = env(&[("PTDF_SINK_CAPACITY", "999"), ("PTDF_INGESTION_ENDPOINT", "https://env.invalid")]);
+        let e = env(&[
+            ("PTDF_SINK_CAPACITY", "999"),
+            ("PTDF_INGESTION_ENDPOINT", "https://env.invalid"),
+        ]);
         let from_env = PartialRecorderConfig::from_env_map(&e).unwrap();
         let cli_override = PartialRecorderConfig {
             ingestion_endpoint: Some("https://cli.invalid".into()),
             ..Default::default()
         };
 
-        let merged = RecorderConfig::defaults().merge(from_env).merge(cli_override);
+        let merged = RecorderConfig::defaults()
+            .merge(from_env)
+            .merge(cli_override);
         let cfg = RecorderConfig::finalize(merged).unwrap();
 
-        assert_eq!(cfg.sink_capacity, 999, "env layer should win over built-in default");
-        assert_eq!(cfg.ingestion_endpoint, "https://cli.invalid", "CLI layer should win over env");
-        assert_eq!(cfg.poll_interval, Duration::from_millis(10), "untouched field keeps built-in default");
+        assert_eq!(
+            cfg.sink_capacity, 999,
+            "env layer should win over built-in default"
+        );
+        assert_eq!(
+            cfg.ingestion_endpoint, "https://cli.invalid",
+            "CLI layer should win over env"
+        );
+        assert_eq!(
+            cfg.poll_interval,
+            Duration::from_millis(10),
+            "untouched field keeps built-in default"
+        );
     }
 
     #[test]
@@ -302,7 +370,10 @@ mod tests {
         let partial = PartialRecorderConfig::from_toml_str(toml).unwrap();
         assert_eq!(partial.sink_capacity, Some(4096));
         assert_eq!(partial.poll_interval, Some(Duration::from_millis(25)));
-        assert_eq!(partial.ingestion_endpoint, Some("https://ingest.toml.invalid".to_string()));
+        assert_eq!(
+            partial.ingestion_endpoint,
+            Some("https://ingest.toml.invalid".to_string())
+        );
         assert_eq!(partial.follow_children, Some(false));
     }
 
@@ -318,7 +389,10 @@ mod tests {
     fn toml_layer_rejects_unknown_fields() {
         let toml = r#"not_a_real_field = 1"#;
         let err = PartialRecorderConfig::from_toml_str(toml);
-        assert!(err.is_err(), "an unrecognized key likely indicates a typo and should fail loudly");
+        assert!(
+            err.is_err(),
+            "an unrecognized key likely indicates a typo and should fail loudly"
+        );
     }
 
     #[test]
@@ -329,7 +403,8 @@ mod tests {
 
     #[test]
     fn missing_config_file_yields_empty_layer_not_an_error() {
-        let partial = PartialRecorderConfig::from_toml_file("/definitely/does/not/exist.toml").unwrap();
+        let partial =
+            PartialRecorderConfig::from_toml_file("/definitely/does/not/exist.toml").unwrap();
         assert_eq!(partial, PartialRecorderConfig::default());
     }
 
@@ -345,15 +420,26 @@ mod tests {
     fn full_precedence_chain_including_file_layer() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("ptdf.toml");
-        std::fs::write(&path, "sink_capacity = 500\ningestion_endpoint = \"https://file.invalid\"\n").unwrap();
+        std::fs::write(
+            &path,
+            "sink_capacity = 500\ningestion_endpoint = \"https://file.invalid\"\n",
+        )
+        .unwrap();
 
         let from_file = PartialRecorderConfig::from_toml_file(&path).unwrap();
-        let from_env = PartialRecorderConfig::from_env_map(&env(&[("PTDF_SINK_CAPACITY", "700")])).unwrap();
+        let from_env =
+            PartialRecorderConfig::from_env_map(&env(&[("PTDF_SINK_CAPACITY", "700")])).unwrap();
 
         let merged = RecorderConfig::defaults().merge(from_file).merge(from_env);
         let cfg = RecorderConfig::finalize(merged).unwrap();
 
-        assert_eq!(cfg.sink_capacity, 700, "env layer must win over the file layer");
-        assert_eq!(cfg.ingestion_endpoint, "https://file.invalid", "file layer wins over the built-in default when env doesn't set it");
+        assert_eq!(
+            cfg.sink_capacity, 700,
+            "env layer must win over the file layer"
+        );
+        assert_eq!(
+            cfg.ingestion_endpoint, "https://file.invalid",
+            "file layer wins over the built-in default when env doesn't set it"
+        );
     }
 }

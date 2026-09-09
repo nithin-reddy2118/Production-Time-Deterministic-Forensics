@@ -34,11 +34,17 @@ impl InMemoryMetadataStore {
 
 impl MetadataStore for InMemoryMetadataStore {
     fn register_segment(&self, segment: SegmentRecord) -> Result<(), MetadataError> {
-        let mut inner = self.inner.write().expect("InMemoryMetadataStore lock poisoned");
+        let mut inner = self
+            .inner
+            .write()
+            .expect("InMemoryMetadataStore lock poisoned");
         let session = inner.sessions.entry(segment.session_id).or_default();
 
         if session.segments.iter().any(|s| s.path == segment.path) {
-            return Err(MetadataError::DuplicateSegment { session: segment.session_id, path: segment.path });
+            return Err(MetadataError::DuplicateSegment {
+                session: segment.session_id,
+                path: segment.path,
+            });
         }
 
         session.hosts.insert(segment.host_id);
@@ -46,8 +52,14 @@ impl MetadataStore for InMemoryMetadataStore {
         Ok(())
     }
 
-    fn segments_for_session(&self, session_id: SessionId) -> Result<Vec<SegmentRecord>, MetadataError> {
-        let inner = self.inner.read().expect("InMemoryMetadataStore lock poisoned");
+    fn segments_for_session(
+        &self,
+        session_id: SessionId,
+    ) -> Result<Vec<SegmentRecord>, MetadataError> {
+        let inner = self
+            .inner
+            .read()
+            .expect("InMemoryMetadataStore lock poisoned");
         inner
             .sessions
             .get(&session_id)
@@ -55,31 +67,65 @@ impl MetadataStore for InMemoryMetadataStore {
             .ok_or(MetadataError::UnknownSession(session_id))
     }
 
-    fn index_event(&self, event_id: EventId, session_id: SessionId, kind: EventKind, location: EventLocation) -> Result<(), MetadataError> {
-        let mut inner = self.inner.write().expect("InMemoryMetadataStore lock poisoned");
+    fn index_event(
+        &self,
+        event_id: EventId,
+        session_id: SessionId,
+        kind: EventKind,
+        location: EventLocation,
+    ) -> Result<(), MetadataError> {
+        let mut inner = self
+            .inner
+            .write()
+            .expect("InMemoryMetadataStore lock poisoned");
         if !inner.sessions.contains_key(&session_id) {
             return Err(MetadataError::UnknownSession(session_id));
         }
         inner.event_locations.insert(event_id, location);
-        inner.kind_index.entry((session_id, kind)).or_default().push(event_id);
+        inner
+            .kind_index
+            .entry((session_id, kind))
+            .or_default()
+            .push(event_id);
         Ok(())
     }
 
     fn locate_event(&self, event_id: EventId) -> Result<EventLocation, MetadataError> {
-        let inner = self.inner.read().expect("InMemoryMetadataStore lock poisoned");
-        inner.event_locations.get(&event_id).copied().ok_or(MetadataError::UnknownEvent(event_id))
+        let inner = self
+            .inner
+            .read()
+            .expect("InMemoryMetadataStore lock poisoned");
+        inner
+            .event_locations
+            .get(&event_id)
+            .copied()
+            .ok_or(MetadataError::UnknownEvent(event_id))
     }
 
-    fn events_by_kind(&self, session_id: SessionId, kind: EventKind) -> Result<Vec<EventId>, MetadataError> {
-        let inner = self.inner.read().expect("InMemoryMetadataStore lock poisoned");
+    fn events_by_kind(
+        &self,
+        session_id: SessionId,
+        kind: EventKind,
+    ) -> Result<Vec<EventId>, MetadataError> {
+        let inner = self
+            .inner
+            .read()
+            .expect("InMemoryMetadataStore lock poisoned");
         if !inner.sessions.contains_key(&session_id) {
             return Err(MetadataError::UnknownSession(session_id));
         }
-        Ok(inner.kind_index.get(&(session_id, kind)).cloned().unwrap_or_default())
+        Ok(inner
+            .kind_index
+            .get(&(session_id, kind))
+            .cloned()
+            .unwrap_or_default())
     }
 
     fn hosts_for_session(&self, session_id: SessionId) -> Result<Vec<HostId>, MetadataError> {
-        let inner = self.inner.read().expect("InMemoryMetadataStore lock poisoned");
+        let inner = self
+            .inner
+            .read()
+            .expect("InMemoryMetadataStore lock poisoned");
         inner
             .sessions
             .get(&session_id)
@@ -110,8 +156,12 @@ mod tests {
         let store = InMemoryMetadataStore::new();
         let session = SessionId::from_raw(1);
         let host = HostId::from_raw(1);
-        store.register_segment(sample_segment(session, host, "/data/seg-1.ptds")).unwrap();
-        store.register_segment(sample_segment(session, host, "/data/seg-2.ptds")).unwrap();
+        store
+            .register_segment(sample_segment(session, host, "/data/seg-1.ptds"))
+            .unwrap();
+        store
+            .register_segment(sample_segment(session, host, "/data/seg-2.ptds"))
+            .unwrap();
 
         let segments = store.segments_for_session(session).unwrap();
         assert_eq!(segments.len(), 2);
@@ -122,8 +172,12 @@ mod tests {
         let store = InMemoryMetadataStore::new();
         let session = SessionId::from_raw(1);
         let host = HostId::from_raw(1);
-        store.register_segment(sample_segment(session, host, "/data/seg-1.ptds")).unwrap();
-        let err = store.register_segment(sample_segment(session, host, "/data/seg-1.ptds")).unwrap_err();
+        store
+            .register_segment(sample_segment(session, host, "/data/seg-1.ptds"))
+            .unwrap();
+        let err = store
+            .register_segment(sample_segment(session, host, "/data/seg-1.ptds"))
+            .unwrap_err();
         assert!(matches!(err, MetadataError::DuplicateSegment { .. }));
     }
 
@@ -131,9 +185,18 @@ mod tests {
     fn unknown_session_queries_return_unknown_session_error() {
         let store = InMemoryMetadataStore::new();
         let missing = SessionId::from_raw(999);
-        assert_eq!(store.segments_for_session(missing), Err(MetadataError::UnknownSession(missing)));
-        assert_eq!(store.hosts_for_session(missing), Err(MetadataError::UnknownSession(missing)));
-        assert_eq!(store.events_by_kind(missing, EventKind::Syscall), Err(MetadataError::UnknownSession(missing)));
+        assert_eq!(
+            store.segments_for_session(missing),
+            Err(MetadataError::UnknownSession(missing))
+        );
+        assert_eq!(
+            store.hosts_for_session(missing),
+            Err(MetadataError::UnknownSession(missing))
+        );
+        assert_eq!(
+            store.events_by_kind(missing, EventKind::Syscall),
+            Err(MetadataError::UnknownSession(missing))
+        );
     }
 
     #[test]
@@ -141,11 +204,18 @@ mod tests {
         let store = InMemoryMetadataStore::new();
         let session = SessionId::from_raw(1);
         let host = HostId::from_raw(1);
-        store.register_segment(sample_segment(session, host, "/data/seg-1.ptds")).unwrap();
+        store
+            .register_segment(sample_segment(session, host, "/data/seg-1.ptds"))
+            .unwrap();
 
         let event_id = EventId::new(host, 100, 200, 0);
-        let location = EventLocation { segment_index: 0, byte_offset: 5 };
-        store.index_event(event_id, session, EventKind::Syscall, location).unwrap();
+        let location = EventLocation {
+            segment_index: 0,
+            byte_offset: 5,
+        };
+        store
+            .index_event(event_id, session, EventKind::Syscall, location)
+            .unwrap();
 
         assert_eq!(store.locate_event(event_id).unwrap(), location);
     }
@@ -155,7 +225,10 @@ mod tests {
         let store = InMemoryMetadataStore::new();
         let host = HostId::from_raw(1);
         let event_id = EventId::new(host, 1, 1, 0);
-        assert_eq!(store.locate_event(event_id), Err(MetadataError::UnknownEvent(event_id)));
+        assert_eq!(
+            store.locate_event(event_id),
+            Err(MetadataError::UnknownEvent(event_id))
+        );
     }
 
     #[test]
@@ -163,12 +236,34 @@ mod tests {
         let store = InMemoryMetadataStore::new();
         let session = SessionId::from_raw(1);
         let host = HostId::from_raw(1);
-        store.register_segment(sample_segment(session, host, "/data/seg-1.ptds")).unwrap();
+        store
+            .register_segment(sample_segment(session, host, "/data/seg-1.ptds"))
+            .unwrap();
 
         let syscall_event = EventId::new(host, 1, 1, 0);
         let netio_event = EventId::new(host, 1, 1, 1);
-        store.index_event(syscall_event, session, EventKind::Syscall, EventLocation { segment_index: 0, byte_offset: 0 }).unwrap();
-        store.index_event(netio_event, session, EventKind::NetIo, EventLocation { segment_index: 0, byte_offset: 10 }).unwrap();
+        store
+            .index_event(
+                syscall_event,
+                session,
+                EventKind::Syscall,
+                EventLocation {
+                    segment_index: 0,
+                    byte_offset: 0,
+                },
+            )
+            .unwrap();
+        store
+            .index_event(
+                netio_event,
+                session,
+                EventKind::NetIo,
+                EventLocation {
+                    segment_index: 0,
+                    byte_offset: 10,
+                },
+            )
+            .unwrap();
 
         let syscalls = store.events_by_kind(session, EventKind::Syscall).unwrap();
         assert_eq!(syscalls, vec![syscall_event]);
@@ -181,8 +276,12 @@ mod tests {
         let store = InMemoryMetadataStore::new();
         let session = SessionId::from_raw(1);
         let host = HostId::from_raw(1);
-        store.register_segment(sample_segment(session, host, "/data/seg-1.ptds")).unwrap();
-        store.register_segment(sample_segment(session, host, "/data/seg-2.ptds")).unwrap();
+        store
+            .register_segment(sample_segment(session, host, "/data/seg-1.ptds"))
+            .unwrap();
+        store
+            .register_segment(sample_segment(session, host, "/data/seg-2.ptds"))
+            .unwrap();
 
         let hosts = store.hosts_for_session(session).unwrap();
         assert_eq!(hosts, vec![host]);
@@ -195,7 +294,15 @@ mod tests {
         let host = HostId::from_raw(1);
         let event_id = EventId::new(host, 1, 1, 0);
         let err = store
-            .index_event(event_id, session, EventKind::Syscall, EventLocation { segment_index: 0, byte_offset: 0 })
+            .index_event(
+                event_id,
+                session,
+                EventKind::Syscall,
+                EventLocation {
+                    segment_index: 0,
+                    byte_offset: 0,
+                },
+            )
             .unwrap_err();
         assert_eq!(err, MetadataError::UnknownSession(session));
     }

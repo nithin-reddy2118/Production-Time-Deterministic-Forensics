@@ -63,7 +63,11 @@ mod tests {
     #[test]
     #[should_panic(expected = "SeqAllocator overflow")]
     fn overflow_panics_rather_than_wraps() {
-        let mut a = SeqAllocator { pid: 1, tid: 1, next: u64::MAX };
+        let mut a = SeqAllocator {
+            pid: 1,
+            tid: 1,
+            next: u64::MAX,
+        };
         a.next_seq();
     }
 }

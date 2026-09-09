@@ -23,7 +23,9 @@ use crate::raw::{self, WaitStatus};
 use crate::syscall_table;
 use ptdf_pal::{AttachTarget, InterceptorCapabilities, InterceptorError, PlatformInterceptor};
 use ptdf_recorder_core::SeqAllocator;
-use ptdf_types::{Event, EventId, EventResult, HlcGenerator, HostId, Payload, SessionId, SystemPhysicalClock};
+use ptdf_types::{
+    Event, EventId, EventResult, HlcGenerator, HostId, Payload, SessionId, SystemPhysicalClock,
+};
 use std::sync::mpsc::{self, Receiver, Sender, SyncSender};
 use std::thread::JoinHandle;
 use std::time::Duration;
@@ -55,7 +57,14 @@ impl std::fmt::Debug for LinuxPtraceInterceptor {
 
 impl LinuxPtraceInterceptor {
     pub fn new(host_id: HostId, session_id: SessionId) -> Self {
-        Self { host_id, session_id, thread: None, event_rx: None, control_tx: None, attached_pid: None }
+        Self {
+            host_id,
+            session_id,
+            thread: None,
+            event_rx: None,
+            control_tx: None,
+            attached_pid: None,
+        }
     }
 
     /// The ptrace loop, run entirely on the dedicated tracer thread.
@@ -127,15 +136,18 @@ impl LinuxPtraceInterceptor {
                     return;
                 }
                 WaitStatus::Stopped {
-                     signal,
-                     is_syscall_stop: false,
+                    signal,
+                    is_syscall_stop: false,
                 } => {
-                     // A genuine signal delivery, not a syscall boundary —
-                     // forward it on the next resume so the tracee's
+                    // A genuine signal delivery, not a syscall boundary —
+                    // forward it on the next resume so the tracee's
                     // observed behavior is unchanged (see raw.rs docs).
-                      pending_signal = signal;
-                 }
-                WaitStatus::Stopped { is_syscall_stop: true, .. } => {
+                    pending_signal = signal;
+                }
+                WaitStatus::Stopped {
+                    is_syscall_stop: true,
+                    ..
+                } => {
                     let regs = match unsafe { raw::get_regs(pid) } {
                         Ok(r) => r,
                         Err(e) => {
@@ -157,7 +169,10 @@ impl LinuxPtraceInterceptor {
                             let info = syscall_table::lookup(entry_syscall_num);
                             let retval = regs.rax as i64;
                             let result = if retval < 0 && retval > -4096 {
-                                EventResult::Err { retval, errno: (-retval) as i32 }
+                                EventResult::Err {
+                                    retval,
+                                    errno: (-retval) as i32,
+                                }
                             } else {
                                 EventResult::Ok(retval)
                             };
@@ -165,10 +180,20 @@ impl LinuxPtraceInterceptor {
                             let seq = seq_alloc.next_seq();
                             let event_id = EventId::new(host_id, pid as u32, pid as u32, seq);
                             let hlc_ts = hlc.tick();
-                            let event = Event::new(event_id, session_id, info.kind, hlc_ts, Payload::None, result);
+                            let event = Event::new(
+                                event_id,
+                                session_id,
+                                info.kind,
+                                hlc_ts,
+                                Payload::None,
+                                result,
+                            );
 
                             if event_tx.send(event).is_err() {
-                                ptdf_logging::warn!(pid, "event channel closed; trace loop exiting");
+                                ptdf_logging::warn!(
+                                    pid,
+                                    "event channel closed; trace loop exiting"
+                                );
                                 return;
                             }
                             in_syscall = None;
@@ -205,7 +230,10 @@ impl PlatformInterceptor for LinuxPtraceInterceptor {
         let thread = std::thread::Builder::new()
             .name(format!("ptdf-tracer-{pid}"))
             .spawn(move || Self::run_trace_loop(pid, host_id, session_id, event_tx, control_rx))
-            .map_err(|e| InterceptorError::AttachFailed { pid: target.pid, reason: e.to_string() })?;
+            .map_err(|e| InterceptorError::AttachFailed {
+                pid: target.pid,
+                reason: e.to_string(),
+            })?;
 
         self.thread = Some(thread);
         self.event_rx = Some(event_rx);
@@ -215,7 +243,10 @@ impl PlatformInterceptor for LinuxPtraceInterceptor {
     }
 
     fn detach(&mut self) -> Result<(), InterceptorError> {
-        let pid = self.attached_pid.take().ok_or_else(|| InterceptorError::Platform("not attached".into()))?;
+        let pid = self
+            .attached_pid
+            .take()
+            .ok_or_else(|| InterceptorError::Platform("not attached".into()))?;
 
         if let Some(tx) = self.control_tx.take() {
             let _ = tx.send(ControlMsg::Stop);
@@ -228,7 +259,9 @@ impl PlatformInterceptor for LinuxPtraceInterceptor {
             // rather than detach-the-struct-and-leak, so a caller that
             // waits on `detach()` gets a real guarantee once it returns.
             if handle.join().is_err() {
-                return Err(InterceptorError::Platform(format!("tracer thread for pid {pid} panicked")));
+                return Err(InterceptorError::Platform(format!(
+                    "tracer thread for pid {pid} panicked"
+                )));
             }
         }
         self.event_rx = None;
@@ -246,7 +279,10 @@ impl PlatformInterceptor for LinuxPtraceInterceptor {
     }
 
     fn poll_events(&mut self, max_wait_ms: u32) -> Result<Vec<Event>, InterceptorError> {
-        let rx = self.event_rx.as_ref().ok_or_else(|| InterceptorError::Platform("not attached".into()))?;
+        let rx = self
+            .event_rx
+            .as_ref()
+            .ok_or_else(|| InterceptorError::Platform("not attached".into()))?;
 
         let mut events = Vec::new();
         match rx.recv_timeout(Duration::from_millis(max_wait_ms as u64)) {
@@ -271,11 +307,18 @@ mod tests {
 
     #[test]
     fn attach_rejects_follow_children_cleanly() {
-        let mut interceptor = LinuxPtraceInterceptor::new(HostId::from_raw(1), SessionId::from_raw(1));
-        let target = AttachTarget { pid: 1, follow_children: true };
+        let mut interceptor =
+            LinuxPtraceInterceptor::new(HostId::from_raw(1), SessionId::from_raw(1));
+        let target = AttachTarget {
+            pid: 1,
+            follow_children: true,
+        };
         let err = interceptor.attach(target).unwrap_err();
         assert!(matches!(err, InterceptorError::CapabilityUnavailable(_)));
-        assert!(interceptor.attached_pid.is_none(), "a rejected attach must not leave partial state");
+        assert!(
+            interceptor.attached_pid.is_none(),
+            "a rejected attach must not leave partial state"
+        );
     }
 
     #[test]
@@ -285,8 +328,12 @@ mod tests {
         // in this test environment — we're testing `attach`'s own
         // bookkeeping here, not the trace loop's kernel interaction (that
         // is covered by the `#[ignore]`d tests in `raw.rs`).
-        let mut interceptor = LinuxPtraceInterceptor::new(HostId::from_raw(1), SessionId::from_raw(1));
-        let target = AttachTarget { pid: 999_999, follow_children: false };
+        let mut interceptor =
+            LinuxPtraceInterceptor::new(HostId::from_raw(1), SessionId::from_raw(1));
+        let target = AttachTarget {
+            pid: 999_999,
+            follow_children: false,
+        };
         interceptor.attach(target).unwrap();
         let err = interceptor.attach(target).unwrap_err();
         assert!(matches!(err, InterceptorError::Platform(_)));
@@ -295,13 +342,15 @@ mod tests {
 
     #[test]
     fn detach_without_attach_is_rejected() {
-        let mut interceptor = LinuxPtraceInterceptor::new(HostId::from_raw(1), SessionId::from_raw(1));
+        let mut interceptor =
+            LinuxPtraceInterceptor::new(HostId::from_raw(1), SessionId::from_raw(1));
         assert!(interceptor.detach().is_err());
     }
 
     #[test]
     fn poll_before_attach_is_rejected() {
-        let mut interceptor = LinuxPtraceInterceptor::new(HostId::from_raw(1), SessionId::from_raw(1));
+        let mut interceptor =
+            LinuxPtraceInterceptor::new(HostId::from_raw(1), SessionId::from_raw(1));
         assert!(interceptor.poll_events(10).is_err());
     }
 
@@ -311,7 +360,10 @@ mod tests {
         let caps = interceptor.capabilities();
         assert!(caps.syscalls);
         assert!(caps.signals);
-        assert!(!caps.scheduler, "scheduler tracing needs the eBPF source, not implemented in v1");
+        assert!(
+            !caps.scheduler,
+            "scheduler tracing needs the eBPF source, not implemented in v1"
+        );
         assert!(!caps.memory_race_detection);
     }
 
@@ -321,8 +373,12 @@ mod tests {
         // trace loop returns, and the event channel's sender is dropped —
         // poll_events must surface that as TargetGone rather than hanging
         // or silently returning an empty vec forever.
-        let mut interceptor = LinuxPtraceInterceptor::new(HostId::from_raw(1), SessionId::from_raw(1));
-        let target = AttachTarget { pid: 999_998, follow_children: false };
+        let mut interceptor =
+            LinuxPtraceInterceptor::new(HostId::from_raw(1), SessionId::from_raw(1));
+        let target = AttachTarget {
+            pid: 999_998,
+            follow_children: false,
+        };
         interceptor.attach(target).unwrap();
 
         let deadline = std::time::Instant::now() + Duration::from_secs(5);
