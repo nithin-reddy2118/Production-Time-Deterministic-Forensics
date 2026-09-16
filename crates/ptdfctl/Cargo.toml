@@ -12,9 +12,9 @@ name = "ptdfctl"
 path = "src/main.rs"
 
 [dependencies]
-ptdf-storage = { path = "../ptdf-storage" }
-ptdf-types = { path = "../ptdf-types" }
-ptdf-logging = { path = "../ptdf-logging" }
+ptdf-storage = { path = "../ptdf-storage", version = "0.1.0" }
+ptdf-types = { path = "../ptdf-types", version = "0.1.0" }
+ptdf-logging = { path = "../ptdf-logging", version = "0.1.0" }
 clap = { workspace = true, features = ["derive"] }
 thiserror = { workspace = true }
 

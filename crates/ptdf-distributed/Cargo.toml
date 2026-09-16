@@ -8,12 +8,12 @@ authors.workspace = true
 license.workspace = true
 
 [dependencies]
-ptdf-types = { path = "../ptdf-types" }
+ptdf-types = { path = "../ptdf-types", version = "0.1.0" }
 thiserror = { workspace = true }
 
 [dev-dependencies]
-ptdf-replay-engine = { path = "../ptdf-replay-engine" }
-ptdf-storage = { path = "../ptdf-storage" }
-ptdf-metadata = { path = "../ptdf-metadata" }
-ptdf-pal = { path = "../ptdf-pal" }
+ptdf-replay-engine = { path = "../ptdf-replay-engine", version = "0.1.0" }
+ptdf-storage = { path = "../ptdf-storage", version = "0.1.0" }
+ptdf-metadata = { path = "../ptdf-metadata", version = "0.1.0" }
+ptdf-pal = { path = "../ptdf-pal", version = "0.1.0" }
 tempfile = "3"

@@ -8,8 +8,8 @@ authors.workspace = true
 license.workspace = true
 
 [dependencies]
-ptdf-types = { path = "../ptdf-types" }
-ptdf-pal = { path = "../ptdf-pal" }
+ptdf-types = { path = "../ptdf-types", version = "0.1.0" }
+ptdf-pal = { path = "../ptdf-pal", version = "0.1.0" }
 thiserror = { workspace = true }
 
 [dev-dependencies]

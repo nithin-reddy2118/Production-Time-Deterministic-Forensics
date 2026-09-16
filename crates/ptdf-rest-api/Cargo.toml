@@ -12,16 +12,16 @@ name = "ptdf-api-server"
 path = "src/main.rs"
 
 [dependencies]
-ptdf-types = { path = "../ptdf-types" }
-ptdf-metadata = { path = "../ptdf-metadata" }
-ptdf-replay-engine = { path = "../ptdf-replay-engine" }
-ptdf-metrics = { path = "../ptdf-metrics" }
-ptdf-logging = { path = "../ptdf-logging" }
-ptdf-security = { path = "../ptdf-security" }
+ptdf-types = { path = "../ptdf-types", version = "0.1.0" }
+ptdf-metadata = { path = "../ptdf-metadata", version = "0.1.0" }
+ptdf-replay-engine = { path = "../ptdf-replay-engine", version = "0.1.0" }
+ptdf-metrics = { path = "../ptdf-metrics", version = "0.1.0" }
+ptdf-logging = { path = "../ptdf-logging", version = "0.1.0" }
+ptdf-security = { path = "../ptdf-security", version = "0.1.0" }
 thiserror = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 
 [dev-dependencies]
 tempfile = "3"
-ptdf-storage = { path = "../ptdf-storage" }
+ptdf-storage = { path = "../ptdf-storage", version = "0.1.0" }

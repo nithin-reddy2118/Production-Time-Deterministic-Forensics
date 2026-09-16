@@ -11,10 +11,10 @@ license.workspace = true
 libc = { workspace = true }
 
 [dependencies]
-ptdf-types = { path = "../ptdf-types" }
-ptdf-pal = { path = "../ptdf-pal" }
-ptdf-recorder-core = { path = "../ptdf-recorder-core" }
-ptdf-logging = { path = "../ptdf-logging" }
+ptdf-types = { path = "../ptdf-types", version = "0.1.0" }
+ptdf-pal = { path = "../ptdf-pal", version = "0.1.0" }
+ptdf-recorder-core = { path = "../ptdf-recorder-core", version = "0.1.0" }
+ptdf-logging = { path = "../ptdf-logging", version = "0.1.0" }
 thiserror = { workspace = true }
 
 [dev-dependencies]
